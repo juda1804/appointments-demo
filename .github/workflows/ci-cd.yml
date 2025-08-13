@@ -25,9 +25,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g npm@latest
-          npm ci
+        run: npm ci
 
       - name: Run linting
         run: npm run lint --if-present
@@ -67,9 +65,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g npm@latest
-          npm ci
+        run: npm ci
 
       - name: Test ${{ matrix.package }} package
         run: npm test --workspace=packages/${{ matrix.package }}
@@ -89,9 +85,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g npm@latest
-          npm ci
+        run: npm ci
 
       - name: Run security audit
         run: npm audit --audit-level moderate
@@ -116,9 +110,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g npm@latest
-          npm ci
+        run: npm ci
 
       - name: Build for deployment
         run: npm run build
@@ -149,9 +141,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g npm@latest
-          npm ci
+        run: npm ci
 
       - name: Build for production
         run: npm run build

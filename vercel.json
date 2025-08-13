@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "name": "appointments-demo",
+  "builds": [
+    {
+      "src": "apps/web/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "apps/web/$1"
+    }
+  ],
+  "functions": {
+    "apps/web/src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "COLOMBIA_TIMEZONE": "America/Bogota",
+    "COLOMBIA_CURRENCY": "COP",
+    "COLOMBIA_PHONE_PREFIX": "+57"
+  },
+  "regions": ["gru1"],
+  "projectSettings": {
+    "framework": "nextjs",
+    "buildCommand": "npm run build",
+    "outputDirectory": "apps/web/.next",
+    "installCommand": "npm ci",
+    "rootDirectory": "."
+  }
+}

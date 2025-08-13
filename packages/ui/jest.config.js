@@ -9,7 +9,7 @@ const config = {
   testMatch: [
     '<rootDir>/src/**/*.test.{ts,tsx}',
   ],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@appointments-demo/utils$': path.resolve(__dirname, '../utils/src'),
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],

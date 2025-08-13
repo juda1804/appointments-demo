@@ -6,8 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Button } from './Button';
 
-// Mock the Tailwind CSS classes
-jest.mock('../../../../../../apps/web/src/app/globals.css', () => ({}));
+// Component tests for Button
 
 describe('Button Component', () => {
   it('renders with default props', () => {

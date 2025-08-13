@@ -8,10 +8,10 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
-    "build": "npm run build --workspace=web",
+    "build": "cd apps/web && npm run build",
     "start": "npm run start --workspace=web",
-    "lint": "npm run lint --workspace=web",
-    "typecheck": "npm run typecheck --workspace=web",
+    "lint": "cd apps/web && npm run lint",
+    "typecheck": "cd apps/web && npm run typecheck",
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test --workspaces --if-present -- --coverage",
     "audit": "npm audit --audit-level moderate"

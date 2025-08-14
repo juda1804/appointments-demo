@@ -32,10 +32,11 @@ export const PhoneDisplay: React.FC<PhoneDisplayProps> = ({
   ...props 
 }) => {
   const combinedClassName = `phone-number text-phone ${className}`.trim();
+  const formattedPhone = formatColombianPhone(phone) || phone;
 
   return (
     <span className={combinedClassName} {...props}>
-      {formatColombianPhone(phone)}
+      {formattedPhone}
     </span>
   );
 };

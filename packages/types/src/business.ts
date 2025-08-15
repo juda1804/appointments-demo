@@ -14,7 +14,7 @@ export interface BusinessSettings {
   timezone: string; // 'America/Bogota'
   currency: string; // 'COP'
   businessHours: BusinessHours[];
-  [key: string]: any; // Allow additional settings
+  [key: string]: unknown; // Allow additional settings
 }
 
 export interface BusinessHours {

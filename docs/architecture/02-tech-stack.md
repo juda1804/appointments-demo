@@ -57,6 +57,7 @@ This is the **DEFINITIVE** technology selection for the entire project. All deve
 | **Currency Formatting** | Intl.NumberFormat | Native | Peso currency display | Native browser support, proper Colombian peso formatting |
 | **Calendar Components** | React Big Calendar | 1.8+ | Appointment calendar UI | Customizable for 15-minute slots, timezone support |
 | **Form Validation** | Zod | 3.22+ | Schema validation | TypeScript-first validation, shared between frontend/backend |
+| **Environment Validation** | Zod | 3.22+ | Runtime environment validation | Type-safe configuration with clear error messages |
 | **Date/Time Handling** | date-fns | 2.30+ | Date manipulation | Lightweight, tree-shakeable, timezone support |
 
 ## Key Technology Rationale

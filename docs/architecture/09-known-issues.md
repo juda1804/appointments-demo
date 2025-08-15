@@ -165,6 +165,128 @@ export const env = {
 - `apps/web/src/lib/env.ts` - Environment management
 - `apps/web/.env.local` - Local environment variables
 
+### 2. Client-Side Environment Variable Validation Failure
+
+**Severity:** 🟡 Medium - Application shows error but partially functions
+**Discovery Date:** 2025-08-15  
+**Resolution Date:** 2025-08-15  
+**Status:** ✅ **RESOLVED** - Client-server schema separation implemented
+
+#### Problem Description
+
+After resolving the main environment variable loading issue, a secondary issue appeared where client-side environment validation would fail with "Environment validation failed (client side)" errors, specifically showing "Invalid input" for `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+#### Symptoms
+- Login page displayed "❌ Environment validation failed" message
+- Console showed Zod validation errors for properly configured environment variables  
+- `Object.keys(process.env).filter(key => key.startsWith('NEXT_PUBLIC_'))` returned empty array `[]`
+- Individual environment variables were accessible (e.g., `process.env.NEXT_PUBLIC_SUPABASE_URL`)
+- Manual URL validation passed, but Zod schema validation failed
+
+#### Root Cause
+
+**Next.js Client-Side Environment Variable Behavior:**
+- Next.js exposes `NEXT_PUBLIC_*` variables individually to client-side code
+- However, `Object.keys(process.env)` doesn't enumerate these variables on the client side
+- Zod's `safeParse()` method relies on object enumeration to validate schemas
+- When Zod tried to validate `process.env`, it couldn't see the `NEXT_PUBLIC_*` variables
+
+**Colombian Configuration Variables:**
+- Colombian settings (`COLOMBIA_TIMEZONE`, `COLOMBIA_CURRENCY`, `COLOMBIA_PHONE_PREFIX`) needed client access for formatting/validation
+- These variables lacked the `NEXT_PUBLIC_` prefix required for client-side availability
+
+#### ✅ Solution Implemented
+
+**1. Updated Colombian Environment Variables:**
+```bash
+# OLD - Server-only access
+COLOMBIA_TIMEZONE=America/Bogota
+COLOMBIA_CURRENCY=COP  
+COLOMBIA_PHONE_PREFIX=+57
+
+# NEW - Client-accessible
+NEXT_PUBLIC_COLOMBIA_TIMEZONE=America/Bogota
+NEXT_PUBLIC_COLOMBIA_CURRENCY=COP
+NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX=+57
+```
+
+**2. Implemented Client-Server Schema Separation:**
+```typescript
+// apps/web/src/lib/env.ts
+const clientEnvSchema = z.object({
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  NEXT_PUBLIC_COLOMBIA_TIMEZONE: z.string().default('America/Bogota'),
+  NEXT_PUBLIC_COLOMBIA_CURRENCY: z.string().default('COP'),
+  NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX: z.string().default('+57'),
+  // ... client-accessible variables
+})
+
+const serverEnvSchema = clientEnvSchema.extend({
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  // ... server-only variables  
+})
+
+const isServer = typeof window === 'undefined'
+const schema = isServer ? serverEnvSchema : clientEnvSchema
+
+// Manual object creation for client-side (works around Next.js enumeration issue)
+const envToValidate = isServer ? process.env : {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_COLOMBIA_TIMEZONE: process.env.NEXT_PUBLIC_COLOMBIA_TIMEZONE,
+  // ... explicit mapping
+}
+
+const parsedEnv = schema.safeParse(envToValidate)
+```
+
+**3. Updated Validation Scripts:**
+```javascript
+// apps/web/scripts/validate-env.js  
+const requiredVars = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY', 
+  'NEXT_PUBLIC_COLOMBIA_TIMEZONE',    // Updated from COLOMBIA_TIMEZONE
+  'NEXT_PUBLIC_COLOMBIA_CURRENCY',    // Updated from COLOMBIA_CURRENCY
+  'NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX' // Updated from COLOMBIA_PHONE_PREFIX
+]
+```
+
+#### Verification Steps
+
+1. **Browser Console Check:**
+   - Navigate to `/login` page
+   - Should NOT show "Environment validation failed" errors
+   - Should display Colombian configuration values correctly
+
+2. **Environment Debug Output:**
+   ```javascript
+   // Console should show:
+   NEXT_PUBLIC_COLOMBIA_TIMEZONE: America/Bogota
+   NEXT_PUBLIC_COLOMBIA_CURRENCY: COP  
+   NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX: +57
+   ```
+
+3. **Validation Script Test:**
+   ```bash
+   cd apps/web && npm run env:validate
+   # Should show all variables as ✅ Found
+   ```
+
+#### Files Updated
+- `apps/web/.env.local` - Variable name changes
+- `apps/web/.env.local.example` - Template updates
+- `apps/web/src/lib/env.ts` - Schema separation and manual object creation
+- `apps/web/scripts/validate-env.js` - Updated variable names
+- `docs/architecture/02-tech-stack.md` - Documentation updates
+
+#### Prevention Strategy
+1. **Test environment variables on both client and server** after any schema changes
+2. **Remember Next.js client-side environment enumeration limitations** when using Zod validation
+3. **Use `NEXT_PUBLIC_` prefix** for any variables needed on client-side
+4. **Implement separate schemas** for client vs server validation when needed
+
 ---
 
 ## Issue Reporting Guidelines

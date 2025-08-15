@@ -1,7 +1,5 @@
 # Page snapshot
 
 ```yaml
-- heading "404" [level=1]
-- heading "This page could not be found." [level=2]
-- alert
+- 'heading "Application error: a client-side exception has occurred while loading localhost (see the browser console for more information)." [level=2]'
 ```

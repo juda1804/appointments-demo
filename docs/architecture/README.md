@@ -20,6 +20,9 @@ This directory contains the complete architecture documentation for the Colombia
 ### Colombian Market Specialization
 - **[Colombian Integration](./08-colombian-integration.md)** - Holiday calendar, peso pricing, phone validation, and market-specific features
 
+### Operations & Troubleshooting
+- **[Known Issues](./09-known-issues.md)** - Critical issues, solutions, and prevention strategies
+
 ## Quick Navigation
 
 - **Getting Started**: Start with [System Overview](./01-system-overview.md)

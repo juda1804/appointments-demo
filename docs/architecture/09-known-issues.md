@@ -12,8 +12,9 @@ This document captures critical issues that have been encountered during develop
 ### 1. Environment Variables Not Loading in Next.js
 
 **Severity:** 🔴 Critical - Application fails to start
-**Discovery Date:** 2025-08-15
-**Resolution Time:** Significant development time lost
+**Discovery Date:** 2025-08-15  
+**Resolution Date:** 2025-08-15
+**Status:** ✅ **RESOLVED** - Modern architecture implemented
 
 #### Problem Description
 
@@ -43,15 +44,62 @@ env: {
 
 When you define an `env` section in Next.js configuration, it **overrides** the default automatic environment variable loading behavior and **only** exposes the variables you explicitly list.
 
-#### Solution
+#### ✅ Solution Implemented
 
-Remove the explicit `env` section from `next.config.ts` to restore Next.js automatic environment variable loading:
-
+**1. Removed Explicit Environment Section:**
 ```typescript
-// CORRECT APPROACH - Let Next.js handle env vars automatically
-// Environment variable validation - removed explicit env section
-// to allow Next.js automatic environment variable loading
-// Colombian variables will use defaults from lib/env.ts
+// apps/web/next.config.ts - CURRENT IMPLEMENTATION
+const nextConfig: NextConfig = {
+  // Let Next.js handle environment variables automatically
+  // NEXT_PUBLIC_ variables are automatically available on the client
+  // Server-only variables remain secure
+  
+  // Production optimizations
+  ...(process.env.NODE_ENV === 'production' && {
+    compiler: {
+      removeConsole: true,
+    },
+  }),
+};
+```
+
+**2. Implemented Zod-Based Validation:**
+```typescript
+// apps/web/src/lib/env.ts - NEW ARCHITECTURE
+import { z } from 'zod';
+
+const envSchema = z.object({
+  // Client-side variables (automatically exposed by Next.js)
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url('Invalid Supabase URL format'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anonymous key is required'),
+  
+  // Server-side variables (secure)
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  
+  // Colombian configuration with defaults
+  COLOMBIA_TIMEZONE: z.string().default('America/Bogota'),
+  COLOMBIA_CURRENCY: z.string().default('COP'),
+  COLOMBIA_PHONE_PREFIX: z.string().default('+57'),
+  
+  // ... rest of configuration
+});
+
+const parsedEnv = envSchema.safeParse(process.env);
+
+if (!parsedEnv.success) {
+  console.error('❌ Environment validation failed:');
+  console.error(parsedEnv.error.format());
+  throw new Error('Invalid environment configuration');
+}
+
+export const env = {
+  supabase: {
+    url: parsedEnv.data.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: parsedEnv.data.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    serviceRoleKey: parsedEnv.data.SUPABASE_SERVICE_ROLE_KEY,
+  },
+  // ... type-safe structured configuration
+} as const;
 ```
 
 #### Verification Steps
@@ -80,12 +128,21 @@ Remove the explicit `env` section from `next.config.ts` to restore Next.js autom
    ```
    Should not fail due to environment variable issues
 
+#### ✅ Best Practices Implemented
+
+1. **✅ Use Next.js automatic environment loading** - No explicit `env` sections
+2. **✅ Implement Zod validation** - Runtime type safety with clear error messages  
+3. **✅ Structured configuration** - Type-safe environment access with defaults
+4. **✅ Security separation** - Client vs server variable distinction
+5. **✅ Colombian defaults** - Built-in fallbacks for market-specific configuration
+
 #### Prevention Strategy
 
-1. **Never use explicit `env` sections** in `next.config.ts` unless absolutely necessary
-2. **Always test environment loading** after Next.js configuration changes
-3. **Use environment validation scripts** to catch issues early
-4. **Document any custom environment handling** in this file
+1. **Follow Next.js best practices** - Let framework handle `NEXT_PUBLIC_` variables automatically
+2. **Use Zod for validation** - Runtime validation with helpful error messages
+3. **Separate client/server concerns** - Never expose secrets with `NEXT_PUBLIC_` prefix
+4. **Test environment loading** after any configuration changes
+5. **Document configuration changes** in this file
 
 #### Technical Details
 

@@ -66,33 +66,103 @@ npm run db:generate
 npm run db:push
 ```
 
-### Environment Configuration
+### Environment Configuration (Modern Architecture)
+
+**✅ Current Implementation - Zod-Based Validation:**
 
 ```typescript
-// .env.local - Development environment variables
-interface EnvironmentConfig {
-  // Supabase Configuration
-  NEXT_PUBLIC_SUPABASE_URL=https://[project-id].supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-  SUPABASE_SERVICE_ROLE_KEY=eyJ...
+// apps/web/src/lib/env.ts - Type-safe environment configuration
+import { z } from 'zod';
+
+const envSchema = z.object({
+  // Supabase Configuration (Client-side accessible)
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url('Invalid Supabase URL format'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Supabase anonymous key is required'),
   
-  // Colombian Market Configuration
-  COLOMBIA_TIMEZONE=America/Bogota
-  COLOMBIA_CURRENCY=COP
-  COLOMBIA_PHONE_PREFIX=+57
+  // Server-side Configuration (Secure)
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   
-  // Infrastructure
-  VERCEL_URL=http://localhost:3000
-  DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
+  // Colombian Configuration with defaults
+  COLOMBIA_TIMEZONE: z.string().default('America/Bogota'),
+  COLOMBIA_CURRENCY: z.string().default('COP'),
+  COLOMBIA_PHONE_PREFIX: z.string().default('+57'),
   
-  // Development
-  NODE_ENV=development
+  // App Configuration
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NEXT_PUBLIC_APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   
-  // Colombian Holiday API (Epic 3 integration)
-  COLOMBIA_HOLIDAY_API_URL=https://date.nager.at/api/v3/publicholidays
-  COLOMBIA_HOLIDAY_API_KEY=optional_api_key
+  // Colombian Holiday API (Future integration)
+  COLOMBIA_HOLIDAY_API_URL: z.string().url().optional(),
+  COLOMBIA_HOLIDAY_API_KEY: z.string().optional(),
+});
+
+// Runtime validation with clear error messages
+const parsedEnv = envSchema.safeParse(process.env);
+
+if (!parsedEnv.success) {
+  console.error('❌ Environment validation failed:');
+  console.error(parsedEnv.error.format());
+  throw new Error('Invalid environment configuration');
 }
+
+// Type-safe structured access
+export const env = {
+  supabase: {
+    url: parsedEnv.data.NEXT_PUBLIC_SUPABASE_URL,
+    anonKey: parsedEnv.data.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    serviceRoleKey: parsedEnv.data.SUPABASE_SERVICE_ROLE_KEY,
+  },
+  colombia: {
+    timezone: parsedEnv.data.COLOMBIA_TIMEZONE,
+    currency: parsedEnv.data.COLOMBIA_CURRENCY,
+    phonePrefix: parsedEnv.data.COLOMBIA_PHONE_PREFIX,
+  },
+  // ... rest of structured configuration
+} as const;
 ```
+
+**Environment File (.env.local):**
+```bash
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://[project-id].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# Colombian Market Configuration (with automatic defaults)
+COLOMBIA_TIMEZONE=America/Bogota
+COLOMBIA_CURRENCY=COP  
+COLOMBIA_PHONE_PREFIX=+57
+
+# Development Configuration
+NODE_ENV=development
+NEXT_PUBLIC_APP_ENV=development
+
+# Colombian Holiday API (Future Epic 3 integration)
+COLOMBIA_HOLIDAY_API_URL=https://date.nager.at/api/v3/publicholidays
+COLOMBIA_HOLIDAY_API_KEY=optional_api_key
+```
+
+### ✅ Environment Configuration Benefits
+
+**Modern Architecture Advantages:**
+
+1. **🔒 Security:** Clear separation between client/server variables
+2. **🛡️ Type Safety:** Runtime validation with Zod prevents configuration errors  
+3. **🇨🇴 Colombian Defaults:** Built-in fallbacks for market-specific settings
+4. **📝 Self-Documenting:** Schema serves as configuration documentation
+5. **⚡ Performance:** No explicit env whitelisting - leverages Next.js optimizations
+6. **🧪 Testable:** Easy mocking and validation for testing environments
+
+**Key Differences from Legacy Approach:**
+
+| Aspect | ❌ Legacy (Explicit env) | ✅ Modern (Zod validation) |
+|--------|-------------------------|---------------------------|
+| **Next.js Config** | Manual env whitelisting | Automatic NEXT_PUBLIC_ loading |
+| **Validation** | Runtime discovery of missing vars | Schema-driven validation |
+| **Type Safety** | Manual TypeScript interfaces | Inferred types from Zod |
+| **Defaults** | Hardcoded in config | Schema-defined defaults |
+| **Error Messages** | Generic missing variable | Specific validation errors |
+| **Security** | Manual secret separation | Built-in client/server distinction |
 
 ## CI/CD Pipeline Architecture
 

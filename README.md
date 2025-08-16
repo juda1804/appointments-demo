@@ -185,11 +185,13 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Colombian Configuration
-COLOMBIA_TIMEZONE=America/Bogota
-COLOMBIA_CURRENCY=COP
-COLOMBIA_PHONE_PREFIX=+57
+# Colombian Configuration (Client-accessible with NEXT_PUBLIC_ prefix)
+NEXT_PUBLIC_COLOMBIA_TIMEZONE=America/Bogota
+NEXT_PUBLIC_COLOMBIA_CURRENCY=COP
+NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX=+57
 ```
+
+**Important**: Colombian configuration variables use the `NEXT_PUBLIC_` prefix to ensure they're available for client-side formatting and validation of phone numbers, currency, and timezone handling.
 
 ## 🤝 Contributing
 

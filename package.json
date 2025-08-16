@@ -7,14 +7,20 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=web",
+    "dev": "cd apps/web && npm run dev",
     "build": "cd apps/web && npm run build",
     "start": "npm run start --workspace=web",
     "lint": "cd apps/web && npm run lint",
     "typecheck": "cd apps/web && npm run typecheck",
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test --workspaces --if-present -- --coverage",
-    "audit": "npm audit --audit-level moderate"
+    "test:e2e": "PLAYWRIGHT_HTML_REPORT=false playwright test",
+    "test:e2e:report": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "audit": "npm audit --audit-level moderate",
+    "seed:dev": "tsx scripts/seed-dev-users.ts",
+    "cleanup:dev": "tsx scripts/cleanup-dev-data.ts"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
@@ -25,9 +31,11 @@
     "@types/node": "^20.10.0",
     "autoprefixer": "^10.4.21",
     "babel-jest": "^30.0.5",
+    "dotenv": "^17.2.1",
     "jest": "^30.0.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
+    "tsx": "^4.20.4",
     "typescript": "^5.3.0"
   },
   "dependencies": {

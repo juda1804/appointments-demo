@@ -57,6 +57,7 @@ This is the **DEFINITIVE** technology selection for the entire project. All deve
 | **Currency Formatting** | Intl.NumberFormat | Native | Peso currency display | Native browser support, proper Colombian peso formatting |
 | **Calendar Components** | React Big Calendar | 1.8+ | Appointment calendar UI | Customizable for 15-minute slots, timezone support |
 | **Form Validation** | Zod | 3.22+ | Schema validation | TypeScript-first validation, shared between frontend/backend |
+| **Environment Validation** | Zod | 3.22+ | Runtime environment validation | Type-safe configuration with client/server schema separation |
 | **Date/Time Handling** | date-fns | 2.30+ | Date manipulation | Lightweight, tree-shakeable, timezone support |
 
 ## Key Technology Rationale
@@ -143,6 +144,25 @@ const formatPesoCOP = (amount: number) =>
 // Colombian timezone (no daylight saving)
 const COLOMBIA_TIMEZONE = 'America/Bogota'
 ```
+
+### Environment Configuration Strategy
+The system uses a **client-server aware environment validation** approach to handle Next.js's special treatment of `NEXT_PUBLIC_*` variables:
+
+```typescript
+// Environment variables that need client access use NEXT_PUBLIC_ prefix
+NEXT_PUBLIC_COLOMBIA_TIMEZONE=America/Bogota
+NEXT_PUBLIC_COLOMBIA_CURRENCY=COP
+NEXT_PUBLIC_COLOMBIA_PHONE_PREFIX=+57
+
+// Server-only variables (like service role keys) don't need the prefix
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+**Key Implementation Details:**
+- **Separate Zod schemas** for client vs server validation
+- **Manual object creation** for client-side validation (works around Next.js environment variable enumeration limitations)
+- **Conditional schema selection** based on `typeof window === 'undefined'`
+- **Colombian settings available on both client and server** for consistent formatting and validation
 
 ## Performance Requirements
 

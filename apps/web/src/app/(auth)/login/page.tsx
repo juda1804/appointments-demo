@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
@@ -16,6 +16,18 @@ function LoginForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Handle verification message from registration
+  useEffect(() => {
+    const message = searchParams.get('message');
+    const email = searchParams.get('email');
+    
+    if (message === 'verify_email' && email) {
+      setErrors({
+        form: `Se ha enviado un email de verificación a ${decodeURIComponent(email)}. Revisa tu bandeja de entrada y haz clic en el enlace para verificar tu cuenta antes de iniciar sesión.`
+      });
+    }
+  }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -239,27 +251,6 @@ function LoginForm() {
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  ¿Tienes un negocio?
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <a
-                href="/register/business"
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Registrar negocio
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </div>

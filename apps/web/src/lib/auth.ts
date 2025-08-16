@@ -377,7 +377,7 @@ export const auth = {
   resendVerificationEmail: async (email: string, type: 'signup' | 'recovery'): Promise<AuthResult<{ messageId?: string } | null>> => {
     try {
       const { data, error } = await supabase.auth.resend({
-        type: type,
+        type: type === 'recovery' ? 'signup' : type as 'signup',
         email: email
       });
       
@@ -388,7 +388,10 @@ export const auth = {
         };
       }
       
-      return { data, error: null };
+      return { 
+        data: { messageId: data?.messageId ?? undefined },
+        error: null 
+      };
     } catch (err) {
       return { 
         data: null, 

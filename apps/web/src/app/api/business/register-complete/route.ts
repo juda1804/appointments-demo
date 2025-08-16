@@ -55,8 +55,8 @@ const BusinessRegistrationSchema = z.object({
       .min(1, 'La ciudad es requerida')
       .max(100, 'La ciudad es demasiado larga')
       .trim(),
-    department: z.enum(COLOMBIAN_DEPARTMENTS as [string, ...string[]], {
-      errorMap: () => ({ message: 'Departamento colombiano inválido' })
+    department: z.enum([...COLOMBIAN_DEPARTMENTS] as [string, ...string[]], {
+      message: 'Departamento colombiano inválido'
     })
   })
 });
@@ -330,8 +330,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<UnifiedRe
         success: false,
         error: {
           type: 'user_creation_failed',
-          message: 'Error al crear la cuenta de usuario',
-          details: err instanceof Error ? err.message : 'Unknown error'
+          message: err instanceof Error ? err.message : 'Error al crear la cuenta de usuario'
         }
       }, { status: 500 });
     }
@@ -350,10 +349,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<UnifiedRe
         success: false,
         error: {
           type: 'business_creation_failed',
-          message: 'Error al crear el negocio. Registro cancelado.',
+          message: err instanceof Error ? err.message : 'Error al crear el negocio. Registro cancelado.',
           cleanup_performed: cleanupSuccessful,
-          retry_allowed: true,
-          details: err instanceof Error ? err.message : 'Unknown error'
+          retry_allowed: true
         }
       }, { status: 500 });
     }

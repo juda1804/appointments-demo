@@ -17,12 +17,32 @@ jest.mock('@/lib/auth', () => ({
 }));
 
 // Mock validation schemas
-jest.mock('@/components/forms/validation-schemas', () => ({
-  UserRegistrationSchema: {
-    parse: jest.fn(),
-  },
-  extractValidationErrors: jest.fn(),
-}));
+jest.mock('@/components/forms/validation-schemas', () => {
+  const originalModule = jest.requireActual('@/components/forms/validation-schemas');
+  return {
+    ...originalModule,
+    UserRegistrationSchema: {
+      parse: jest.fn((data) => {
+        // Simple validation for testing
+        if (!data.email || !data.email.includes('@')) {
+          throw new Error('Email inválido');
+        }
+        if (!data.password || data.password.length < 8) {
+          throw new Error('La contraseña debe tener al menos 8 caracteres');
+        }
+        if (data.password !== data.confirmPassword) {
+          throw new Error('Las contraseñas no coinciden');
+        }
+        return data;
+      }),
+    },
+    extractValidationErrors: jest.fn((error) => ({
+      email: error.message.includes('Email') ? error.message : undefined,
+      password: error.message.includes('contraseña') ? error.message : undefined,
+      confirmPassword: error.message.includes('coinciden') ? error.message : undefined,
+    })),
+  };
+});
 
 const mockRouterPush = jest.fn();
 const mockAuth = auth as jest.Mocked<typeof auth>;
@@ -162,7 +182,7 @@ describe('RegisterPage', () => {
     await user.click(submitButton);
     
     await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith('/auth/verify-email?email=test%40example.com');
+      expect(mockRouterPush).toHaveBeenCalledWith('/login?message=verify_email&email=test%40example.com');
     });
   });
 

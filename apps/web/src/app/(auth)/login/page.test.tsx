@@ -1,8 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
-import { LoginForm } from './page';
+import LoginPage from './page';
 import { auth } from '@/lib/auth';
 
 // Mock Next.js router
@@ -21,27 +20,35 @@ jest.mock('@/lib/auth', () => ({
 }));
 
 // Mock validation schemas
-jest.mock('@/components/forms/validation-schemas', () => ({
-  LoginSchema: {
-    parse: jest.fn(),
-  },
-  extractValidationErrors: jest.fn(),
-}));
+jest.mock('@/components/forms/validation-schemas', () => {
+  const originalModule = jest.requireActual('@/components/forms/validation-schemas');
+  return {
+    ...originalModule,
+    LoginSchema: {
+      parse: jest.fn((data) => {
+        // Simple validation for testing
+        if (!data.email || !data.email.includes('@')) {
+          throw new Error('Email inválido');
+        }
+        if (!data.password) {
+          throw new Error('La contraseña es requerida');
+        }
+        return data;
+      }),
+    },
+    extractValidationErrors: jest.fn((error) => ({
+      email: error.message.includes('Email') ? error.message : undefined,
+      password: error.message.includes('contraseña') ? error.message : undefined,
+    })),
+  };
+});
 
 const mockRouterPush = jest.fn();
 const mockSearchParamsGet = jest.fn();
 const mockAuth = auth as jest.Mocked<typeof auth>;
 
-// Test wrapper to handle Suspense boundary
-const TestWrapper = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <Suspense fallback={<div data-testid="loading">Loading...</div>}>
-      {children}
-    </Suspense>
-  );
-};
 
-describe('LoginForm', () => {
+describe('LoginPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue({
@@ -54,7 +61,7 @@ describe('LoginForm', () => {
   });
 
   it('renders login form correctly', () => {
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     expect(screen.getByRole('heading', { name: /iniciar sesión/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
@@ -64,9 +71,100 @@ describe('LoginForm', () => {
     expect(screen.getByText(/¿no tienes cuenta?/i)).toBeInTheDocument();
   });
 
+  it('displays verification message when coming from registration', async () => {
+    mockSearchParamsGet.mockImplementation((key) => {
+      if (key === 'message') return 'verify_email';
+      if (key === 'email') return 'test@example.com';
+      return null;
+    });
+
+    render(<LoginPage />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/se ha enviado un email de verificación a test@example.com/i)).toBeInTheDocument();
+      expect(screen.getByText(/revisa tu bandeja de entrada y haz clic en el enlace/i)).toBeInTheDocument();
+    });
+  });
+
+  it('displays verification message with encoded email', async () => {
+    mockSearchParamsGet.mockImplementation((key) => {
+      if (key === 'message') return 'verify_email';
+      if (key === 'email') return 'test%40example.com';
+      return null;
+    });
+
+    render(<LoginPage />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/se ha enviado un email de verificación a test@example.com/i)).toBeInTheDocument();
+    });
+  });
+
+  it('does not display verification message without email parameter', async () => {
+    mockSearchParamsGet.mockImplementation((key) => {
+      if (key === 'message') return 'verify_email';
+      return null;
+    });
+
+    render(<LoginPage />);
+    
+    await waitFor(() => {
+      expect(screen.queryByText(/se ha enviado un email de verificación/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not display verification message with different message parameter', async () => {
+    mockSearchParamsGet.mockImplementation((key) => {
+      if (key === 'message') return 'other_message';
+      if (key === 'email') return 'test@example.com';
+      return null;
+    });
+
+    render(<LoginPage />);
+    
+    await waitFor(() => {
+      expect(screen.queryByText(/se ha enviado un email de verificación/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('verification message does not conflict with login errors', async () => {
+    const user = userEvent.setup();
+    mockSearchParamsGet.mockImplementation((key) => {
+      if (key === 'message') return 'verify_email';
+      if (key === 'email') return 'test@example.com';
+      return null;
+    });
+    mockAuth.signIn.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Invalid login credentials', status: 400 }
+    });
+
+    render(<LoginPage />);
+    
+    // Initially shows verification message
+    await waitFor(() => {
+      expect(screen.getByText(/se ha enviado un email de verificación/i)).toBeInTheDocument();
+    });
+
+    // Try to login with wrong credentials
+    const emailInput = screen.getByLabelText(/email/i);
+    const passwordInput = screen.getByLabelText(/contraseña/i);
+    const submitButton = screen.getByRole('button', { name: /iniciar sesión/i });
+    
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'wrongpassword');
+    await user.click(submitButton);
+    
+    // Should show login error instead of verification message
+    await waitFor(() => {
+      expect(screen.getByText(/email o contraseña incorrectos/i)).toBeInTheDocument();
+      expect(screen.queryByText(/se ha enviado un email de verificación/i)).not.toBeInTheDocument();
+    });
+  });
+
   it('validates email format', async () => {
     const user = userEvent.setup();
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const submitButton = screen.getByRole('button', { name: /iniciar sesión/i });
@@ -81,7 +179,7 @@ describe('LoginForm', () => {
 
   it('requires password field', async () => {
     const user = userEvent.setup();
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const submitButton = screen.getByRole('button', { name: /iniciar sesión/i });
@@ -96,7 +194,7 @@ describe('LoginForm', () => {
 
   it('shows and hides password field', async () => {
     const user = userEvent.setup();
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const passwordInput = screen.getByLabelText(/contraseña/i);
     const showPasswordButton = screen.getByText(/mostrar/i);
@@ -119,7 +217,7 @@ describe('LoginForm', () => {
     });
     mockAuth.getCurrentBusinessId.mockReturnValue('business-123');
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -142,7 +240,7 @@ describe('LoginForm', () => {
       error: { message: 'Invalid login credentials', status: 400 }
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -164,7 +262,7 @@ describe('LoginForm', () => {
       error: { message: 'Email not confirmed', status: 400 }
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -186,7 +284,7 @@ describe('LoginForm', () => {
       error: { message: 'Too many requests', status: 429 }
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -208,7 +306,7 @@ describe('LoginForm', () => {
       error: { message: 'Network error', status: 500 }
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -232,7 +330,7 @@ describe('LoginForm', () => {
       })
     );
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -258,7 +356,7 @@ describe('LoginForm', () => {
 
   it('clears field errors when user starts typing', async () => {
     const user = userEvent.setup();
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const submitButton = screen.getByRole('button', { name: /iniciar sesión/i });
@@ -285,7 +383,7 @@ describe('LoginForm', () => {
       error: null
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const forgotPasswordButton = screen.getByRole('button', { name: /¿olvidaste tu contraseña?/i });
@@ -301,7 +399,7 @@ describe('LoginForm', () => {
 
   it('requires email for forgot password', async () => {
     const user = userEvent.setup();
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const forgotPasswordButton = screen.getByRole('button', { name: /¿olvidaste tu contraseña?/i });
     
@@ -319,7 +417,7 @@ describe('LoginForm', () => {
       error: { message: 'Reset failed', status: 400 }
     });
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const forgotPasswordButton = screen.getByRole('button', { name: /¿olvidaste tu contraseña?/i });
@@ -333,18 +431,12 @@ describe('LoginForm', () => {
   });
 
   it('links to registration page', () => {
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const registerLink = screen.getByRole('link', { name: /regístrate aquí/i });
     expect(registerLink).toHaveAttribute('href', '/register');
   });
 
-  it('links to business registration page', () => {
-    render(<LoginForm />, { wrapper: TestWrapper });
-    
-    const businessRegisterLink = screen.getByRole('link', { name: /registrar negocio/i });
-    expect(businessRegisterLink).toHaveAttribute('href', '/register/business');
-  });
 
   it('handles login without business context', async () => {
     const user = userEvent.setup();
@@ -357,7 +449,7 @@ describe('LoginForm', () => {
     });
     mockAuth.getCurrentBusinessId.mockReturnValue(null);
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -384,7 +476,7 @@ describe('LoginForm', () => {
     });
     mockAuth.getCurrentBusinessId.mockReturnValue('business-123');
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);
@@ -412,7 +504,7 @@ describe('LoginForm', () => {
     });
     mockAuth.getCurrentBusinessId.mockReturnValue('business-123');
     
-    render(<LoginForm />, { wrapper: TestWrapper });
+    render(<LoginPage />);
     
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/contraseña/i);

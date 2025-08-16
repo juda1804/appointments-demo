@@ -71,7 +71,7 @@ export default function RegisterPage() {
       if (result.data.user) {
         // Check if user needs email confirmation
         if (!result.data.session) {
-          router.push('/auth/verify-email?email=' + encodeURIComponent(formData.email));
+          router.push('/login?message=verify_email&email=' + encodeURIComponent(formData.email));
         } else {
           // User is logged in immediately
           router.push('/dashboard');
@@ -214,28 +214,6 @@ export default function RegisterPage() {
               </button>
             </div>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  ¿Registras un negocio?
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <a
-                href="/register/business"
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Registrar negocio
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </div>

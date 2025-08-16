@@ -14,6 +14,18 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
+// Mock window.location
+const mockLocation = {
+  href: '',
+  assign: jest.fn(),
+  replace: jest.fn(),
+  reload: jest.fn(),
+};
+
+// Mock window.location differently to avoid redefine issues
+delete (window as any).location;
+(window as any).location = mockLocation;
+
 // Mock Supabase
 jest.mock('./supabase', () => ({
   supabase: {
@@ -58,6 +70,8 @@ describe('JWT Token Management', () => {
     localStorageMock.getItem.mockReset();
     localStorageMock.setItem.mockReset();
     localStorageMock.removeItem.mockReset();
+    // Reset the href setter mock
+    jest.clearAllMocks();
   });
 
   describe('JWT Token Structure with Business Context', () => {

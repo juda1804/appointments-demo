@@ -17,7 +17,41 @@ import {
   query
 } from './database-operations'
 
-// Mock Supabase client for testing
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn(),
+    },
+    rpc: jest.fn(),
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          single: jest.fn(),
+          limit: jest.fn(() => ({
+            eq: jest.fn(() => ({}))
+          }))
+        })),
+        insert: jest.fn(() => ({
+          select: jest.fn(() => ({
+            single: jest.fn()
+          }))
+        })),
+        update: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            select: jest.fn(() => ({
+              single: jest.fn()
+            }))
+          }))
+        })),
+        delete: jest.fn(() => ({
+          eq: jest.fn()
+        }))
+      }))
+    }))
+  }))
+}))
+
+// Mock Supabase client instance for direct usage in tests
 const mockSupabase = {
   auth: {
     getSession: jest.fn(),
@@ -49,10 +83,6 @@ const mockSupabase = {
     }))
   }))
 }
-
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => mockSupabase)
-}))
 
 // Mock localStorage
 const localStorageMock = {

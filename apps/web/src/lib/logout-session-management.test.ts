@@ -4,6 +4,12 @@
  */
 
 import { supabase } from './supabase';
+import { 
+  clearBusinessContext, 
+  setBusinessContext, 
+  getBusinessContext, 
+  validateBusinessContext 
+} from './rls-context-management';
 
 // Mock RLS context management
 jest.mock('./rls-context-management', () => ({

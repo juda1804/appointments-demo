@@ -15,15 +15,14 @@ jest.mock('@/lib/auth-context', () => ({
 }));
 
 // Mock ProtectedRoute component
-jest.mock('@/components/auth/ProtectedRoute', () => {
-  return {
-    ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  };
-});
+jest.mock('@/components/auth/ProtectedRoute', () => ({
+  ProtectedRoute: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 const mockRouterPush = jest.fn();
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockSignOut = jest.fn();
+const mockGetCurrentBusinessId = jest.fn();
 
 describe('DashboardPage', () => {
   beforeEach(() => {
@@ -34,11 +33,21 @@ describe('DashboardPage', () => {
   });
 
   it('renders dashboard with user information', () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -50,11 +59,21 @@ describe('DashboardPage', () => {
   });
 
   it('renders dashboard without business context', () => {
+    mockGetCurrentBusinessId.mockReturnValue(null);
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -65,11 +84,21 @@ describe('DashboardPage', () => {
   });
 
   it('displays main navigation sections', () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -85,11 +114,21 @@ describe('DashboardPage', () => {
   });
 
   it('shows authentication status information', () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -100,11 +139,21 @@ describe('DashboardPage', () => {
   });
 
   it('handles sign out functionality', async () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -118,11 +167,21 @@ describe('DashboardPage', () => {
   });
 
   it('displays sign out button in navigation', () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);
@@ -132,11 +191,21 @@ describe('DashboardPage', () => {
   });
 
   it('shows welcome message and authentication success status', () => {
+    mockGetCurrentBusinessId.mockReturnValue('business-123');
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: mockSignOut,
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: mockGetCurrentBusinessId,
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(<DashboardPage />);

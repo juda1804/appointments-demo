@@ -1,0 +1,13 @@
+- Business no deberia estar en el login, porque esto es un paso que debe hacer un usuario luego de registrarse.
+
+- hay un problema luego de hacer register. 
+ me está redireccionando a http://localhost:3000/auth/verify-email?email=danigusvi18%40gmail.com
+ y lo que deberia hacer es 
+ ir al login y poner un mensajito al usuario en el front diciendole que debe verificar su correo. 
+
+
+ - el correo se verificacion está muy pobre, como lo enriquesco.
+
+ - los correos se estan quedando cargando por un rato y no entran en el login, revisar que pasa. 
+
+ 

@@ -7,6 +7,11 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+import { join } from 'path';
+
+// Load environment variables from .env.local
+config({ path: join(process.cwd(), '.env.local') });
 
 // Development environment check
 if (process.env.NODE_ENV === 'production') {

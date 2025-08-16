@@ -346,6 +346,60 @@ export const auth = {
     }
   },
 
+  // Verify email with OTP token
+  verifyEmail: async (token: string, type: 'signup' | 'recovery'): Promise<AuthResult<{ user: User | null; session: Session | null }>> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: token,
+        type: type
+      });
+      
+      if (error) {
+        return { 
+          data: { user: null, session: null }, 
+          error: { message: error.message, status: error.status } 
+        };
+      }
+      
+      return { data, error: null };
+    } catch (err) {
+      return { 
+        data: { user: null, session: null }, 
+        error: { 
+          message: err instanceof Error ? err.message : 'Email verification failed',
+          status: 500 
+        } 
+      };
+    }
+  },
+
+  // Resend verification email
+  resendVerificationEmail: async (email: string, type: 'signup' | 'recovery'): Promise<AuthResult<{ messageId?: string } | null>> => {
+    try {
+      const { data, error } = await supabase.auth.resend({
+        type: type,
+        email: email
+      });
+      
+      if (error) {
+        return { 
+          data: null, 
+          error: { message: error.message, status: error.status } 
+        };
+      }
+      
+      return { data, error: null };
+    } catch (err) {
+      return { 
+        data: null, 
+        error: { 
+          message: err instanceof Error ? err.message : 'Resend email failed',
+          status: 500 
+        } 
+      };
+    }
+  },
+
   // Set business context after registration
   setBusinessContext: async (businessId: string): Promise<{ error: AuthError | null }> => {
     try {

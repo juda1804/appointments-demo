@@ -18,7 +18,9 @@
     "test:e2e:report": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "audit": "npm audit --audit-level moderate"
+    "audit": "npm audit --audit-level moderate",
+    "seed:dev": "tsx scripts/seed-dev-users.ts",
+    "cleanup:dev": "tsx scripts/cleanup-dev-data.ts"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",

@@ -47,19 +47,37 @@ export function middleware(request: NextRequest) {
                        pathname === '/favicon.ico';
   
   // Get authentication token from cookies
-  const authToken = request.cookies.get('sb-access-token');
-  const refreshToken = request.cookies.get('sb-refresh-token');
-  const isAuthenticated = !!(authToken && refreshToken);
+  // Check for any Supabase-related cookies (dynamic detection)
+  const allCookies = request.cookies.getAll();
+  const supabaseCookies = allCookies.filter(cookie => 
+    cookie.name.includes('sb-') && 
+    (cookie.name.includes('auth') || cookie.name.includes('token'))
+  );
+  
+  // Log for debugging
+  console.log('🛡️ Middleware - Total cookies:', allCookies.length);
+  console.log('🛡️ Middleware - Supabase cookies found:', supabaseCookies.map(c => c.name));
+  
+  const isAuthenticated = supabaseCookies.length > 0 && supabaseCookies.some(c => c.value);
+  
+  // Fallback to legacy cookie names for backward compatibility
+  const legacyAuthToken = request.cookies.get('sb-access-token');
+  const legacyRefreshToken = request.cookies.get('sb-refresh-token');
+  const hasLegacyCookies = !!(legacyAuthToken && refreshToken);
+  
+  const finalIsAuthenticated = isAuthenticated || hasLegacyCookies;
   
   // If accessing a protected route without authentication
-  if (isProtectedRoute && !isAuthenticated) {
+  if (isProtectedRoute && !finalIsAuthenticated) {
+    console.log('🛡️ Middleware - Redirecting to login, no auth found');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('returnUrl', encodeURIComponent(pathname));
     return NextResponse.redirect(loginUrl);
   }
   
   // If authenticated user tries to access auth routes, redirect to dashboard
-  if (isAuthRoute && isAuthenticated) {
+  if (isAuthRoute && finalIsAuthenticated) {
+    console.log('🛡️ Middleware - Redirecting to dashboard, user already auth');
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ColombianBusinessForm } from '@/components/business/registration-form';
 import { BusinessRegistrationData } from '@/components/forms/validation-schemas';
+import { useAuth } from '@/lib/auth-context';
 
 interface RegistrationState {
   isLoading: boolean;
@@ -49,6 +50,7 @@ interface RegistrationResponse {
  */
 export default function BusinessRegistrationPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading, isInitialized } = useAuth();
   const [state, setState] = useState<RegistrationState>({
     isLoading: false,
     errors: {},
@@ -191,6 +193,28 @@ export default function BusinessRegistrationPage() {
     }
   };
 
+  // Show loading state while auth is initializing
+  if (!isInitialized || authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-sm text-gray-600">Cargando...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    router.push('/login');
+    return null;
+  }
+
   // Show success state
   if (state.isSuccess) {
     return (
@@ -236,6 +260,27 @@ export default function BusinessRegistrationPage() {
         <p className="mt-2 text-center text-sm text-gray-600">
           Crea tu cuenta para comenzar a gestionar citas en Colombia
         </p>
+        
+        {/* User Info Display */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                <span className="font-medium">Usuario:</span> {user.email}
+              </p>
+              {user.name && (
+                <p className="text-sm text-blue-600">
+                  <span className="font-medium">Nombre:</span> {user.name}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -280,30 +325,6 @@ export default function BusinessRegistrationPage() {
             </div>
           )}
 
-          {/* Additional Information */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  ¿Ya tienes cuenta?
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => router.push('/login')}
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                disabled={state.isLoading}
-              >
-                Iniciar Sesión
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 

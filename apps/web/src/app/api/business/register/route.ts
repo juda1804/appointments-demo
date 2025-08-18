@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { businessDb } from '@/lib/database';
+import { env } from '@/lib/env';
 import { BusinessRegistrationSchema, extractValidationErrors } from '@/components/forms/validation-schemas';
+import type { Database } from '@/lib/database.types';
 
 // Response type definitions
 
@@ -34,6 +39,39 @@ interface ErrorResponse {
 }
 
 type ApiResponse = SuccessResponse | ErrorResponse;
+
+// Create server client for authenticated requests (reads user session from cookies)
+const createServerClientFromRequest = async () => {
+  const cookieStore = await cookies();
+  
+  return createServerClient<Database>(
+    env.supabase.url,
+    env.supabase.anonKey,
+    {
+      cookies: {
+        getAll() {
+          const cookies = cookieStore.getAll();
+          console.log('🍪 getAll() called, returning cookies:', cookies.map(c => c.name));
+          return cookies;
+        },
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+          console.log('🍪 setAll() called with cookies:', cookiesToSet.map(c => c.name));
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              console.log(`🍪 Setting cookie: ${name}`);
+              cookieStore.set(name, value, options);
+            });
+          } catch (error) {
+            console.warn('🍪 Error setting cookies (this might be expected in Server Components):', error);
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  );
+};
 
 /**
  * Colombian Business Registration API Endpoint
@@ -96,11 +134,47 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     const businessData = validationResult.data;
 
-    // Initialize Supabase client
-    const supabase = createServerSupabaseClient();
+    // Step 1: Authenticate user via session cookies
+    // DEBUG: Log cookie information
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+    console.log('🍪 All cookies received:', allCookies.map(c => ({ name: c.name, value: c.value?.substring(0, 20) + '...' })));
+    console.log('🍪 Supabase-related cookies:', allCookies.filter(c => c.name.includes('sb')));
 
-    // Check email uniqueness
-    const { data: existingBusiness, error: checkError } = await supabase
+    const authClient = await createServerClientFromRequest();
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
+    
+    console.log('🔐 Authentication result:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      userEmail: user?.email,
+      errorCode: authError?.message,
+      errorStatus: authError?.status 
+    });
+    
+    if (authError || !user) {
+      console.error('Authentication error details:', {
+        error: authError,
+        cookieCount: allCookies.length,
+        supabaseCookieCount: allCookies.filter(c => c.name.includes('sb')).length
+      });
+      return NextResponse.json<ErrorResponse>(
+        {
+          success: false,
+          error: {
+            type: 'server_error',
+            message: 'Usuario no autenticado. Por favor, inicia sesión e intenta nuevamente.'
+          }
+        },
+        { status: 401 }
+      );
+    }
+
+    // Step 2: Use service role client for business operations (bypasses RLS)
+    const serviceClient = createServerSupabaseClient();
+
+    // Check email uniqueness using service client
+    const { data: existingBusiness, error: checkError } = await serviceClient
       .from('businesses')
       .select('id')
       .eq('email', businessData.email)
@@ -143,6 +217,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // Prepare business record for insertion
     const businessRecord = {
       id: businessId,
+      owner_id: user.id, // Associate business with authenticated user
       name: businessData.name,
       email: businessData.email,
       phone: businessData.phone,
@@ -156,8 +231,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       }
     };
 
-    // Create business record
-    const { data: createdBusiness, error: insertError } = await supabase
+    // Create business record using service client (bypasses RLS)
+    const { data: createdBusiness, error: insertError } = await serviceClient
       .from('businesses')
       .insert(businessRecord)
       .select()
@@ -192,6 +267,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
         },
         { status: 500 }
       );
+    }
+
+    // Step 3: Set RLS context for future operations
+    try {
+      await businessDb.setBusinessContext(createdBusiness.id);
+    } catch (contextError) {
+      console.warn('Failed to set business context after creation:', contextError);
+      // Continue with response - this is not a critical failure
     }
 
     // Format successful response

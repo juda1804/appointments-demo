@@ -7,8 +7,7 @@ import { supabase } from './supabase';
 import { 
   clearBusinessContext, 
   setBusinessContext, 
-  getBusinessContext, 
-  validateBusinessContext 
+  getBusinessContext 
 } from './rls-context-management';
 
 // Mock RLS context management
@@ -16,7 +15,6 @@ jest.mock('./rls-context-management', () => ({
   clearBusinessContext: jest.fn(),
   setBusinessContext: jest.fn(),
   getBusinessContext: jest.fn(),
-  validateBusinessContext: jest.fn(),
 }));
 
 // Mock Supabase client

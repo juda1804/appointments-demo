@@ -14,11 +14,21 @@ Authorization: Bearer <jwt_token>
 **Tenant Context:**
 Each authenticated request automatically includes the user's business context through Supabase RLS policies and the X-Business-ID header.
 
+**Hybrid Authentication Pattern:**
+Some endpoints like business registration use a hybrid approach:
+1. **User Authentication**: Session cookies verify the user is authenticated
+2. **Service Role Operations**: Service role client bypasses RLS for entity creation
+3. **RLS Context Setting**: Establishes tenant isolation after creation
+
+This pattern is used for operations that require both user verification and the ability to create root tenant entities.
+
 ## Core Business Management
 
 ### POST /api/business/register
 
 **Purpose:** Register a new Colombian service business with complete multi-tenant setup
+
+**Authentication:** Hybrid pattern - requires authenticated user session + uses service role for business creation
 
 **Request Body:**
 ```typescript

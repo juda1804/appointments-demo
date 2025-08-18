@@ -103,7 +103,7 @@ describe('ProtectedRoute', () => {
     });
   });
 
-  it('redirects to business setup when business context is required but missing', async () => {
+  it('redirects to business registration when business context is required but missing', async () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
@@ -118,7 +118,7 @@ describe('ProtectedRoute', () => {
     );
 
     await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith('/dashboard?setup=business');
+      expect(mockRouterPush).toHaveBeenCalledWith('/register/business');
     });
 
     expect(screen.queryByText('Protected content')).not.toBeInTheDocument();

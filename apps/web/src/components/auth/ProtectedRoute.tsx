@@ -34,8 +34,8 @@ export function ProtectedRoute({
 
     if (requireBusinessContext && !businessId) {
       // User is authenticated but missing business context
-      // Redirect to business setup or dashboard
-      router.push('/dashboard?setup=business');
+      // Redirect to business registration page to avoid circular redirects
+      router.push('/register/business');
       return;
     }
   }, [user, isLoading, businessId, requireBusinessContext, router, pathname, redirectTo]);

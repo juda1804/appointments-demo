@@ -32,6 +32,11 @@ npm run dev                    # Start development server on localhost:3000
 npm run build                  # Build for production
 npm run start                  # Start production server
 
+# Environment-specific builds
+cd apps/web && npm run dev:staging     # Development with staging config
+cd apps/web && npm run build:staging   # Build for staging environment
+cd apps/web && npm run build:production # Build for production environment
+
 # Code Quality
 npm run lint                   # Run ESLint
 npm run typecheck              # TypeScript type checking
@@ -41,16 +46,25 @@ npm test                       # Run all tests across packages
 npm run test:coverage          # Run tests with coverage
 npm test --workspace=web       # Test specific workspace
 npm test --workspace=packages/utils
+npm run test:e2e               # Run end-to-end tests with Playwright
+npm run test:e2e:ui            # Run Playwright tests with UI
+npm run test:e2e:headed        # Run Playwright tests in headed mode
+npm run test:e2e:report        # Run e2e tests and generate HTML report
 
 # Environment
 npm run env:validate           # Validate environment variables
 npm run audit                  # Security audit
+
+# Development utilities
+npm run seed:dev               # Seed development data
+npm run cleanup:dev            # Clean up development data
 ```
 
 ### Testing Structure
 - Unit tests: `.test.tsx` and `.test.ts` files alongside source code
 - Integration tests: API route tests in `apps/web/src/app/api/*/route.test.ts`
 - Component tests: React Testing Library tests for all components
+- End-to-end tests: Playwright tests in `apps/web/tests/`
 - Test a single file: `npm test -- filename.test.ts`
 - Watch mode: `cd apps/web && npm run test:watch`
 
@@ -125,7 +139,7 @@ COLOMBIA_PHONE_PREFIX=+57
 ```
 
 ### Environment Validation
-- Run `npm run env:validate` to check all required variables
+- Run `npm run env:validate` or `cd apps/web && npm run env:check` to check all required variables
 - Environment validation is in `apps/web/scripts/validate-env.js`
 - Type-safe environment access via `apps/web/src/lib/env.ts`
 
@@ -145,7 +159,7 @@ COLOMBIA_PHONE_PREFIX=+57
 
 ### Import Conventions
 ```typescript
-// Internal packages
+// Internal packages (note: types is imported for TypeScript types only)
 import type { Business } from '@appointments-demo/types';
 import { formatColombianPhone } from '@appointments-demo/utils';
 import { Button, Card } from '@appointments-demo/ui';

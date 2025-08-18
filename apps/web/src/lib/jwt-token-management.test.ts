@@ -23,8 +23,8 @@ const mockLocation = {
 };
 
 // Mock window.location differently to avoid redefine issues
-delete (window as any).location;
-(window as any).location = mockLocation;
+delete (window as unknown as { location?: unknown }).location;
+(window as unknown as { location: typeof mockLocation }).location = mockLocation;
 
 // Mock Supabase
 jest.mock('./supabase', () => ({

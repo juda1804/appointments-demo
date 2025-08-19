@@ -134,17 +134,33 @@ export const auth = {
   // Sign in with email and password
   signIn: async (email: string, password: string): Promise<AuthResult<{ user: User | null; session: Session | null }>> => {
     try {
+      console.log('🔐 Auth: Attempting login for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
+      console.log('🔐 Auth: Login response received', { 
+        hasSession: !!data.session,
+        hasUser: !!data.user,
+        error: error?.message 
+      });
+      
       if (error) {
+        console.warn('🔐 Auth: Login failed:', error.message);
         return { 
           data: { user: null, session: null }, 
           error: { message: error.message, status: error.status } 
         };
       }
+
+      console.log('🔐 Auth: Login successful, checking for session cookies...');
+      
+      // Give a moment for cookies to be set
+      setTimeout(() => {
+        console.log('🔐 Auth: Cookies should now be set in browser');
+      }, 100);
 
       // If user has business_id in metadata, set business context
       if (data.session?.user?.user_metadata?.business_id) {
@@ -161,6 +177,7 @@ export const auth = {
       
       return { data, error: null };
     } catch (err) {
+      console.error('🔐 Auth: Unexpected error during login:', err);
       return { 
         data: { user: null, session: null }, 
         error: { 

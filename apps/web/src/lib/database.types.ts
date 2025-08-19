@@ -6,6 +6,7 @@ import type { Business, BusinessSettings } from '@appointments-demo/types';
 // Raw database record type (matches actual database schema)
 export interface BusinessRecord {
   id: string;
+  owner_id: string;
   name: string;
   description: string | null;
   street: string;
@@ -71,9 +72,12 @@ export function toDomainBusiness(record: BusinessRecord): Business {
 }
 
 // Helper to convert domain object to database record
-export function toBusinessRecord(business: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>): 
-  Database['public']['Tables']['businesses']['Insert'] {
+export function toBusinessRecord(
+  business: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>, 
+  ownerId: string
+): Database['public']['Tables']['businesses']['Insert'] {
   return {
+    owner_id: ownerId,
     name: business.name,
     description: business.description || null,
     street: business.address.street,

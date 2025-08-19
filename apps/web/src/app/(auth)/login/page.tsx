@@ -16,6 +16,29 @@ function LoginForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      try {
+        const { data } = await auth.getSession();
+        if (data.session) {
+          // User is already authenticated, redirect to dashboard
+          const returnUrl = searchParams.get('returnUrl');
+          const redirectPath = returnUrl ? decodeURIComponent(returnUrl) : '/dashboard';
+          router.push(redirectPath);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAuthentication();
+  }, [router, searchParams]);
 
   // Handle verification message from registration
   useEffect(() => {
@@ -135,6 +158,18 @@ function LoginForm() {
       setErrors({ form: 'Error al enviar el email de recuperación' });
     }
   };
+
+  // Show loading while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

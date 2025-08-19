@@ -99,11 +99,11 @@ useEffect(() => {
 ## Definition of Done
 - [x] Registration redirects to login page with verification message parameters
 - [x] Login page detects and displays email verification instructions from registration
-- [x] Email verification functionality continues to work via email links sent to users
+- [ ] Email verification functionality continues to work via email links sent to users
 - [x] Registration flow tests updated and passing
 - [x] Login page tests updated to cover new message handling
-- [x] Manual testing confirms intuitive user flow from registration to verification
-- [x] Existing email verification via token links remains functional
+- [ ] Manual testing confirms intuitive user flow from registration to verification
+- [ ] Existing email verification via token links remains functional
 
 ## Risk Assessment
 
@@ -230,17 +230,12 @@ Claude Sonnet 4 (claude-sonnet-4-20250514)
 - Message uses existing error display system for consistency
 - Tests updated to reflect new redirect behavior
 - Code passes linting checks
-- Build successful and development server running
-- Fixed multiple compatibility issues with Next.js 15 and Supabase APIs
 
 ### File List
 - `/apps/web/src/app/(auth)/register/page.tsx` - Modified line 74 to redirect to login
 - `/apps/web/src/app/(auth)/login/page.tsx` - Added useEffect for verification message handling
 - `/apps/web/src/app/(auth)/register/page.test.tsx` - Updated redirect test expectation
 - `/apps/web/src/app/(auth)/login/page.test.tsx` - Added verification message tests and fixed imports
-- `/apps/web/src/app/(auth)/verify-email/page.tsx` - Fixed Suspense boundary and export issues
-- `/apps/web/src/app/api/business/register-complete/route.ts` - Fixed Zod enum syntax
-- `/apps/web/src/lib/auth.ts` - Fixed Supabase API compatibility
 
 ### Change Log
 1. **Registration Redirect (register/page.tsx)**:

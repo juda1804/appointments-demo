@@ -13,14 +13,22 @@ function createSupabaseClient() {
         'Missing Supabase environment variables. Please check your environment configuration.'
       );
     }
-    
-    return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    });
+
+    // Check if we're in browser environment
+    if (typeof window !== 'undefined') {
+      // Browser environment - use SSR-compatible browser client
+      const { createBrowserClient } = require('@supabase/ssr');
+      return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+    } else {
+      // Server environment - use regular client without session persistence
+      return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false
+        }
+      });
+    }
   } catch (error) {
     console.error('Supabase configuration error:', error);
     throw error;

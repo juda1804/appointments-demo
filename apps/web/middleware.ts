@@ -63,7 +63,7 @@ export function middleware(request: NextRequest) {
   // Fallback to legacy cookie names for backward compatibility
   const legacyAuthToken = request.cookies.get('sb-access-token');
   const legacyRefreshToken = request.cookies.get('sb-refresh-token');
-  const hasLegacyCookies = !!(legacyAuthToken && refreshToken);
+  const hasLegacyCookies = !!(legacyAuthToken && legacyRefreshToken);
   
   const finalIsAuthenticated = isAuthenticated || hasLegacyCookies;
   

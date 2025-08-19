@@ -92,6 +92,59 @@ This system is specifically built for the Colombian market with built-in utiliti
 - Colombian national holidays integration
 - Use `isColombianHoliday()` and `getNextBusinessDay()`
 
+## Authentication & Supabase Integration
+
+### SSR Authentication Architecture
+- **Client-Side**: Uses `createBrowserClient` from `@supabase/ssr` for proper cookie handling
+- **Server-Side**: Uses `createServerClient` from `@supabase/ssr` for request-based authentication
+- **Cookie Sharing**: Authentication state synchronized between client and server via cookies
+- **Session Persistence**: Users remain logged in across page refreshes and navigation
+
+### Supabase Client Configuration
+```typescript
+// Browser environment (client-side)
+if (typeof window !== 'undefined') {
+  // Uses createBrowserClient for SSR-compatible cookie handling
+  return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+} else {
+  // Server environment - regular client without session persistence
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+}
+```
+
+### Authentication Flow
+1. **Login**: `auth.signIn(email, password)` → Sets authentication cookies
+2. **Server Requests**: Read session from cookies via `createServerClient`
+3. **Client State**: Synchronized via SSR cookie sharing
+4. **Business Context**: Automatically set after successful authentication
+
+### Key Authentication Utilities
+```typescript
+import { auth } from '@/lib/auth';
+
+// Sign in with email/password
+const result = await auth.signIn(email, password);
+if (!result.error) {
+  // User is now authenticated with cookies set
+}
+
+// Get current session
+const { data: session } = await auth.getSession();
+
+// Check authentication status
+const { data: user } = await auth.getUser();
+
+// Sign out with cleanup
+await auth.signOut();
+```
+
+### Authentication Debugging
+- Login attempts are logged in browser console with `🔐 Auth:` prefix
+- Check `/api/debug/auth` endpoint for authentication status and cookie information
+- Verify Supabase cookies are set after login (format: `sb-<project-id>-auth-token`)
+
 ## Database & Multi-Tenancy
 
 ### Row Level Security (RLS)
@@ -185,9 +238,9 @@ import { env } from '@/lib/env';
 - `apps/web/next.config.ts` - Next.js configuration
 
 ### Core Libraries
-- `apps/web/src/lib/supabase.ts` - Supabase client configuration
+- `apps/web/src/lib/supabase.ts` - Supabase SSR client configuration (conditional browser/server clients)
 - `apps/web/src/lib/database.ts` - Database operations with RLS
-- `apps/web/src/lib/auth.ts` - Authentication utilities
+- `apps/web/src/lib/auth.ts` - Authentication utilities with comprehensive logging
 - `apps/web/src/lib/env.ts` - Type-safe environment variables
 
 ### Colombian Utilities  
@@ -221,6 +274,59 @@ import { env } from '@/lib/env';
 2. Use typed database utilities in `database.ts`
 3. Test multi-tenant isolation in every feature
 4. Verify RLS policies prevent cross-business access
+
+## Troubleshooting
+
+### Authentication Issues
+
+**Problem**: 401 Unauthorized errors on API routes
+**Cause**: Authentication cookies not being shared between client and server
+**Solution**: 
+1. Verify `apps/web/src/lib/supabase.ts` uses conditional `createBrowserClient`
+2. Check browser console for `🔐 Auth:` logs during login
+3. Verify `/api/debug/auth` shows Supabase cookies after login
+
+**Problem**: No Supabase cookies after login
+**Possible Causes**:
+1. **Supabase Project Settings**: Check Site URL and Redirect URLs in dashboard
+2. **Domain Configuration**: Ensure `http://localhost:3000` is allowed
+3. **Browser Issues**: Try incognito mode or clear browser data
+
+**Problem**: Session not persisting across page refreshes
+**Solution**: Ensure client uses `createBrowserClient` for proper cookie management
+
+### Environment Issues
+
+**Problem**: "Missing Supabase environment variables" 
+**Solution**: Run `npm run env:validate` to check configuration
+
+**Problem**: Database connection failures
+**Solution**: 
+1. Verify SUPABASE_SERVICE_ROLE_KEY is set correctly
+2. Check Supabase project region matches application region
+3. Test connection with `businessDb.testMultiTenantIsolation()`
+
+### Development Workflow Issues
+
+**Problem**: Next.js webpack/React errors during development
+**Solution**: 
+1. Clear Next.js cache: `rm -rf .next && npm run dev`
+2. Restart development server
+3. Check for dependency conflicts
+
+**Problem**: TypeScript compilation errors
+**Solution**:
+1. Run `npm run typecheck` to identify issues
+2. Update test files to match current type definitions
+3. Ensure all imports use correct paths
+
+### Testing Issues
+
+**Problem**: Jest tests failing with Supabase imports
+**Solution**: Ensure test mocks properly handle SSR client creation
+
+**Problem**: Playwright tests failing authentication
+**Solution**: Set up proper test user credentials and cookie handling
 
 ## Documentation References
 

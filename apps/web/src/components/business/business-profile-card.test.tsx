@@ -1,6 +1,22 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BusinessProfileCard } from './business-profile-card';
 import type { Business } from '@appointments-demo/types';
+
+// Mock Heroicons
+jest.mock('@heroicons/react/24/outline', () => {
+  const MockIcon = ({ className, ...props }: { className?: string; [key: string]: unknown }) =>
+    React.createElement('div', { className, 'data-testid': 'mock-icon', ...props });
+  
+  return {
+    PencilIcon: MockIcon,
+    MapPinIcon: MockIcon,
+    PhoneIcon: MockIcon,
+    EnvelopeIcon: MockIcon,
+    ClockIcon: MockIcon,
+  };
+});
 
 // Mock Colombian utilities
 jest.mock('@appointments-demo/utils', () => ({
@@ -43,13 +59,14 @@ describe('BusinessProfileCard', () => {
     
     expect(screen.getByText('Carrera 15 #45-67')).toBeInTheDocument();
     expect(screen.getByText('Medellín, Antioquia')).toBeInTheDocument();
-    expect(screen.getByText('050010')).toBeInTheDocument();
+    expect(screen.getByText('CP: 050010')).toBeInTheDocument();
   });
 
   it('shows Colombian phone numbers with correct formatting', () => {
     render(<BusinessProfileCard business={mockBusiness} />);
     
-    expect(screen.getByText('+57 301 234 5678')).toBeInTheDocument();
+    expect(screen.getAllByText('+57 301 234 5678')).toHaveLength(2); // Phone and WhatsApp
+    expect(screen.getByText('WhatsApp')).toBeInTheDocument();
   });
 
   it('displays business email', () => {
@@ -62,6 +79,12 @@ describe('BusinessProfileCard', () => {
     render(<BusinessProfileCard business={mockBusiness} />);
     
     expect(screen.getByText('America/Bogota')).toBeInTheDocument();
+  });
+
+  it('displays currency information', () => {
+    render(<BusinessProfileCard business={mockBusiness} />);
+    
+    expect(screen.getByText('COP - Peso Colombiano')).toBeInTheDocument();
   });
 
   it('handles business without description', () => {
@@ -93,12 +116,13 @@ describe('BusinessProfileCard', () => {
     expect(screen.queryByRole('button', { name: /editar perfil/i })).not.toBeInTheDocument();
   });
 
-  it('calls onEdit when edit button is clicked', () => {
+  it('calls onEdit when edit button is clicked', async () => {
+    const user = userEvent.setup();
     const mockOnEdit = jest.fn();
     render(<BusinessProfileCard business={mockBusiness} onEdit={mockOnEdit} />);
     
     const editButton = screen.getByRole('button', { name: /editar perfil/i });
-    editButton.click();
+    await user.click(editButton);
     
     expect(mockOnEdit).toHaveBeenCalledTimes(1);
   });

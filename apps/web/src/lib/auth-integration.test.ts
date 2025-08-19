@@ -261,7 +261,7 @@ describe('Authentication Integration Tests', () => {
     it('should handle auth state changes with error recovery', () => {
       let authStateCallback: (event: string, session: unknown) => void;
 
-      mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+      mockSupabase.auth.onAuthStateChange.mockImplementation((callback: (event: string, session: unknown) => void) => {
         authStateCallback = callback;
         return { data: { subscription: { unsubscribe: jest.fn() } } };
       });
@@ -272,7 +272,7 @@ describe('Authentication Integration Tests', () => {
       });
 
       // Simulate auth state change to null (logout)
-      authStateCallback('SIGNED_OUT', null);
+      authStateCallback!('SIGNED_OUT', null);
 
       // Verify business context is cleared
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('current_business_id');

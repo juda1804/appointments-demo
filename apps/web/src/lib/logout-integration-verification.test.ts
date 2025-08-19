@@ -12,6 +12,8 @@ import {
   initializeSessionTimeout,
   setupActivityTracking
 } from './logout-session-management';
+import { auth } from './auth';
+import { clearBusinessContext, getBusinessContext } from './rls-context-management';
 
 // Mock all dependencies
 jest.mock('./supabase', () => ({
@@ -83,14 +85,38 @@ const mockLocation = {
   href: '',
   replace: jest.fn(),
   assign: jest.fn(),
-};
+  protocol: 'http:',
+  host: 'localhost:3000',
+  hostname: 'localhost',
+  port: '3000',
+  pathname: '/',
+  search: '',
+  hash: '',
+  origin: 'http://localhost:3000',
+  ancestorOrigins: {} as DOMStringList,
+  reload: jest.fn(),
+} as Location;
+
+// Mock localStorage with proper Storage interface
+const storageWithLength = {
+  ...localStorageMock,
+  get length() {
+    return Object.keys(localStorageMock).filter(key => key !== 'length' && key !== 'key').length;
+  },
+  key: (index: number) => {
+    const keys = Object.keys(localStorageMock).filter(key => key !== 'length' && key !== 'key');
+    return keys[index] || null;
+  }
+} as Storage;
 
 // Mock window object properly
-(global as typeof global & { window: unknown }).window = {
-  ...(global as typeof global & { window: Record<string, unknown> }).window,
-  location: mockLocation,
-  localStorage: localStorageMock,
-};
+Object.defineProperty(global, 'window', {
+  value: {
+    location: mockLocation,
+    localStorage: storageWithLength,
+  },
+  writable: true,
+});
 
 describe('Complete Authentication Cleanup and Verification', () => {
   const mockBusinessId = '550e8400-e29b-41d4-a716-446655440000';
@@ -109,7 +135,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
     jest.clearAllMocks();
     localStorageMock.clear();
     mockLocation.href = '';
-    mockLocation.replace.mockClear();
+    (mockLocation.replace as jest.MockedFunction<typeof mockLocation.replace>).mockClear();
     
     // Set up default mocks
     const mockGetBusinessContext = getBusinessContext as jest.MockedFunction<typeof getBusinessContext>;
@@ -130,7 +156,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
       
       // Mock successful operations
       mockClearBusinessContext.mockResolvedValue({ success: true });
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
       
       const result = await enhancedLogout({
         redirectToLogin: true,
@@ -164,7 +190,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
         success: false, 
         error: 'Database connection failed' 
       });
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
       
       const result = await enhancedLogout({
         redirectToLogin: true,
@@ -211,7 +237,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
       const mockGetBusinessContext = getBusinessContext as jest.MockedFunction<typeof getBusinessContext>;
       
       // Mock clean state
-      mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+      (mockSupabase.auth.getSession as jest.MockedFunction<typeof mockSupabase.auth.getSession>).mockResolvedValue({ data: { session: null }, error: null });
       mockGetBusinessContext.mockReturnValue(null);
       
       const validation = await validateLogoutCleanup();
@@ -225,8 +251,8 @@ describe('Complete Authentication Cleanup and Verification', () => {
       const mockGetBusinessContext = getBusinessContext as jest.MockedFunction<typeof getBusinessContext>;
       
       // Mock incomplete cleanup
-      mockSupabase.auth.getSession.mockResolvedValue({ 
-        data: { session: mockSession }, 
+      (mockSupabase.auth.getSession as jest.MockedFunction<typeof mockSupabase.auth.getSession>).mockResolvedValue({ 
+        data: { session: mockSession as any }, 
         error: null 
       });
       mockGetBusinessContext.mockReturnValue(mockBusinessId);
@@ -244,7 +270,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
 
     test('should handle validation errors', async () => {
       const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.getSession.mockRejectedValue(new Error('Network error'));
+      (mockSupabase.auth.getSession as jest.MockedFunction<typeof mockSupabase.auth.getSession>).mockRejectedValue(new Error('Network error'));
       
       const validation = await validateLogoutCleanup();
 
@@ -393,7 +419,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
       
       // Set up mocks
       mockClearBusinessContext.mockResolvedValue({ success: true });
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
       
       localStorageMock.setItem('current_business_id', mockBusinessId);
       
@@ -405,9 +431,9 @@ describe('Complete Authentication Cleanup and Verification', () => {
 
       expect(result.error).toBeNull();
       expect(result.cleanupResults).toBeDefined();
-      expect(result.cleanupResults.supabaseSession).toBe(true);
-      expect(result.cleanupResults.businessContext).toBe(true);
-      expect(result.cleanupResults.localStorage).toBe(true);
+      expect(result.cleanupResults?.supabaseSession).toBe(true);
+      expect(result.cleanupResults?.businessContext).toBe(true);
+      expect(result.cleanupResults?.localStorage).toBe(true);
     });
 
     test('should handle enhanced logout errors in auth service', async () => {
@@ -419,7 +445,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
         success: false, 
         error: 'Critical database error' 
       });
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
       
       const result = await auth.enhancedSignOut();
 
@@ -447,8 +473,8 @@ describe('Complete Authentication Cleanup and Verification', () => {
 
     test('should maintain logout state consistency', async () => {
       const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
+      (mockSupabase.auth.getSession as jest.MockedFunction<typeof mockSupabase.auth.getSession>).mockResolvedValue({ data: { session: null }, error: null });
       
       await enhancedLogout();
       
@@ -473,7 +499,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
         success: false, 
         error: 'Database timeout' 
       });
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockResolvedValue({ error: null });
       
       const result = await enhancedLogout();
       
@@ -493,7 +519,7 @@ describe('Complete Authentication Cleanup and Verification', () => {
       
       // Mock mixed success/failure
       mockClearBusinessContext.mockResolvedValue({ success: true });
-      mockSupabase.auth.signOut.mockRejectedValue(new Error('Network error'));
+      (mockSupabase.auth.signOut as jest.MockedFunction<typeof mockSupabase.auth.signOut>).mockRejectedValue(new Error('Network error'));
       
       const result = await enhancedLogout({
         redirectToLogin: false,

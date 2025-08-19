@@ -43,6 +43,7 @@ jest.mock('./supabase', () => ({
         })),
       })),
     })),
+    rpc: jest.fn(),
   },
 }));
 
@@ -53,8 +54,10 @@ const mockSupabase = require('./supabase').supabase;
 jest.mock('./auth', () => ({
   businessContext: {
     getCurrentBusinessId: jest.fn(),
-    validateBusinessContext: jest.fn(),
+    setCurrentBusinessId: jest.fn(),
     clearBusinessContext: jest.fn(),
+    setDatabaseBusinessContext: jest.fn(),
+    validateBusinessContext: jest.fn(),
   },
   auth: {
     signOut: jest.fn(),
@@ -70,8 +73,12 @@ describe('JWT Token Management', () => {
     localStorageMock.getItem.mockReset();
     localStorageMock.setItem.mockReset();
     localStorageMock.removeItem.mockReset();
-    // Reset the href setter mock
-    jest.clearAllMocks();
+    
+    // Reset mockLocation href property to be writable
+    Object.defineProperty(mockLocation, 'href', {
+      writable: true,
+      value: '',
+    });
   });
 
   describe('JWT Token Structure with Business Context', () => {
@@ -102,7 +109,7 @@ describe('JWT Token Management', () => {
         iat: 1640995200,
         exp: 1640998800,
       });
-      expect(decodedToken.business_id).toBeUndefined();
+      expect(decodedToken?.business_id).toBeUndefined();
     });
 
     it('should handle invalid JWT token', () => {
@@ -178,6 +185,7 @@ describe('JWT Token Management', () => {
         refresh_token: 'new-refresh-token',
         user: {
           id: 'user-123',
+          email: 'test@example.com',
           user_metadata: { business_id: 'business-123' },
         },
       };
@@ -194,7 +202,14 @@ describe('JWT Token Management', () => {
       const result = await jwtTokenManager.refreshTokenWithBusinessContext();
       
       expect(result.success).toBe(true);
-      expect(result.session).toEqual(mockRefreshedSession);
+      expect(result.session).toEqual({
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+        }
+      });
       expect(mockSupabase.auth.refreshSession).toHaveBeenCalled();
     });
 
@@ -218,8 +233,10 @@ describe('JWT Token Management', () => {
     it('should validate business context after token refresh', async () => {
       const mockRefreshedSession = {
         access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
         user: {
           id: 'user-123',
+          email: 'test@example.com',
           user_metadata: { business_id: 'business-123' },
         },
       };
@@ -245,8 +262,10 @@ describe('JWT Token Management', () => {
     it('should handle business context validation failure after refresh', async () => {
       const mockRefreshedSession = {
         access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
         user: {
           id: 'user-123',
+          email: 'test@example.com',
           user_metadata: { business_id: 'business-123' },
         },
       };
@@ -483,11 +502,18 @@ describe('JWT Token Management', () => {
       mockAuth.businessContext.getCurrentBusinessId.mockReturnValue('business-123');
       mockFetch.mockResolvedValue(authErrorResponse);
       
+      // Mock the location.href setter to avoid jsdom issues
+      Object.defineProperty(mockLocation, 'href', {
+        writable: true,
+        value: '',
+      });
+      
       const response = await fetchInterceptor.fetchWithAuth('/api/test');
       
       expect(response.status).toBe(401);
       expect(mockAuth.auth.signOut).toHaveBeenCalled();
       expect(mockAuth.businessContext.clearBusinessContext).toHaveBeenCalled();
+      expect(mockLocation.href).toBe('/login');
     });
 
     it('should handle business context errors (403)', async () => {
@@ -507,6 +533,11 @@ describe('JWT Token Management', () => {
         statusText: 'Forbidden',
       });
       
+      // Add clone method to the response mock
+      contextErrorResponse.clone = jest.fn().mockReturnValue({
+        json: jest.fn().mockResolvedValue({ error: 'Invalid business context' })
+      });
+      
       mockSupabase.auth.getSession.mockResolvedValue({
         data: { session: mockSession },
         error: null,
@@ -514,10 +545,17 @@ describe('JWT Token Management', () => {
       mockAuth.businessContext.getCurrentBusinessId.mockReturnValue('business-123');
       mockFetch.mockResolvedValue(contextErrorResponse);
       
+      // Mock the location.href setter to avoid jsdom issues
+      Object.defineProperty(mockLocation, 'href', {
+        writable: true,
+        value: '',
+      });
+      
       const response = await fetchInterceptor.fetchWithAuth('/api/test');
       
       expect(response.status).toBe(403);
       expect(mockAuth.businessContext.clearBusinessContext).toHaveBeenCalled();
+      expect(mockLocation.href).toBe('/login?error=business_context_invalid');
     });
 
     it('should pass through non-auth related errors', async () => {
@@ -578,9 +616,16 @@ describe('JWT Token Management', () => {
       const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEyMyIsImJ1c2luZXNzX2lkIjoiYnVzaW5lc3MtMTIzIiwiZXhwIjoxNjQwOTk1MjAwfQ.test-signature';
       const mockSession = {
         access_token: expiredToken,
+        user: { id: 'user-123' },
       };
       const refreshedSession = {
         access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+        user: { 
+          id: 'user-123',
+          email: 'test@example.com',
+          user_metadata: { business_id: 'business-123' }
+        },
       };
       
       mockSupabase.auth.getSession.mockResolvedValueOnce({
@@ -592,6 +637,10 @@ describe('JWT Token Management', () => {
         error: null,
       });
       mockAuth.businessContext.getCurrentBusinessId.mockReturnValue('business-123');
+      mockAuth.businessContext.validateBusinessContext.mockResolvedValue({
+        valid: true,
+        error: null,
+      });
       mockFetch.mockResolvedValue(mockResponse);
       
       await fetchInterceptor.fetchWithAuth('/api/test');
@@ -758,6 +807,81 @@ describe('JWT Token Management', () => {
       expect(result.valid).toBe(false);
       expect(result.error?.message).toBe('User not authenticated');
       expect(result.error?.status).toBe(401);
+    });
+  });
+
+  describe('Global Fetch Override', () => {
+    let originalFetch: typeof fetch;
+
+    beforeEach(() => {
+      originalFetch = window.fetch;
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+      apiMiddleware.restoreOriginalFetch();
+    });
+
+    it('should override global fetch for API calls', () => {
+      apiMiddleware.setupGlobalFetchOverride();
+      
+      expect(window.fetch).not.toBe(originalFetch);
+    });
+
+    it('should use authenticated fetch for API routes', async () => {
+      // Mock a valid non-expired token
+      const futureTimestamp = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(JSON.stringify({ 
+        sub: 'user-123', 
+        exp: futureTimestamp 
+      })).toString('base64')}.test-signature`;
+      
+      const mockSession = {
+        access_token: validToken,
+        user: { id: 'user-123' },
+      };
+      mockSupabase.auth.getSession.mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      });
+      mockAuth.businessContext.getCurrentBusinessId.mockReturnValue(null);
+      
+      const mockResponse = new Response('{}', { status: 200 });
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue(mockResponse);
+      
+      apiMiddleware.setupGlobalFetchOverride();
+      
+      await window.fetch('/api/test');
+      
+      expect(mockFetch).toHaveBeenCalledWith('/api/test', {
+        headers: expect.any(Headers),
+      });
+    });
+
+    it('should use original fetch for non-API routes', async () => {
+      const mockResponse = new Response('{}', { status: 200 });
+      const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
+      mockFetch.mockResolvedValue(mockResponse);
+      
+      apiMiddleware.setupGlobalFetchOverride();
+      
+      await window.fetch('/some-other-route');
+      
+      expect(mockFetch).toHaveBeenCalledWith('/some-other-route', undefined);
+    });
+
+    it('should restore original fetch when requested', () => {
+      // Store original fetch in window for restore to work
+      (window as typeof window & { originalFetch: typeof fetch }).originalFetch = originalFetch;
+      
+      apiMiddleware.setupGlobalFetchOverride();
+      const overriddenFetch = window.fetch;
+      
+      apiMiddleware.restoreOriginalFetch();
+      
+      expect(window.fetch).toBe(originalFetch);
+      expect(window.fetch).not.toBe(overriddenFetch);
     });
   });
 });

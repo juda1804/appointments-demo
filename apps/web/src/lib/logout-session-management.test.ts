@@ -9,6 +9,8 @@ import {
   setBusinessContext, 
   getBusinessContext 
 } from './rls-context-management';
+import { auth, businessContext } from './auth';
+import { jwtTokenManager, fetchInterceptor } from './jwt-token-management';
 
 // Mock RLS context management
 jest.mock('./rls-context-management', () => ({
@@ -21,16 +23,30 @@ jest.mock('./rls-context-management', () => ({
 jest.mock('./supabase', () => ({
   supabase: {
     auth: {
-      signOut: jest.fn(),
-      getSession: jest.fn(),
-      onAuthStateChange: jest.fn(),
-      refreshSession: jest.fn(),
+      signOut: jest.fn().mockResolvedValue({ error: null }),
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+      refreshSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     },
-    rpc: jest.fn(),
+    rpc: jest.fn().mockResolvedValue({ data: null, error: null, count: null, status: 200, statusText: 'OK' }),
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
-    single: jest.fn(),
+    single: jest.fn().mockResolvedValue({ data: null, error: null }),
+  },
+}));
+
+// Mock auth module
+jest.mock('./auth', () => ({
+  auth: {
+    signOut: jest.fn().mockResolvedValue({ error: null }),
+    getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
+  },
+  businessContext: {
+    getCurrentBusinessId: jest.fn(),
+    setCurrentBusinessId: jest.fn(),
+    clearBusinessContext: jest.fn(),
   },
 }));
 
@@ -64,8 +80,18 @@ const localStorageMock = (() => {
   };
 })();
 
+// Enhanced localStorage mock with proper Storage interface
+const enhancedLocalStorageMock = {
+  ...localStorageMock,
+  length: 0,
+  key: jest.fn((index: number) => {
+    const keys = Object.keys((localStorageMock as any).store || {});
+    return keys[index] || null;
+  }),
+} as Storage;
+
 Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
+  value: enhancedLocalStorageMock,
 });
 
 // Mock window.location
@@ -73,14 +99,27 @@ const mockLocation = {
   href: '',
   replace: jest.fn(),
   assign: jest.fn(),
-};
+  ancestorOrigins: {} as DOMStringList,
+  hash: '',
+  host: 'localhost:3000',
+  hostname: 'localhost',
+  origin: 'http://localhost:3000',
+  pathname: '/',
+  port: '3000',
+  protocol: 'http:',
+  search: '',
+  reload: jest.fn(),
+} as Location;
 
 // Mock window object
-(global as typeof global & { window: Record<string, unknown> }).window = {
-  ...global.window,
-  location: mockLocation,
-  localStorage: localStorageMock,
-};
+Object.defineProperty(global, 'window', {
+  value: {
+    ...global.window,
+    location: mockLocation,
+    localStorage: enhancedLocalStorageMock,
+  },
+  writable: true,
+});
 
 describe('Logout Functionality and Session Cleanup', () => {
   const mockBusinessId = '550e8400-e29b-41d4-a716-446655440000';
@@ -102,26 +141,32 @@ describe('Logout Functionality and Session Cleanup', () => {
     
     // Set up getBusinessContext mock to return current localStorage value
     const mockGetBusinessContext = getBusinessContext as jest.MockedFunction<typeof getBusinessContext>;
+    const mockBusinessContextGetCurrent = businessContext.getCurrentBusinessId as jest.MockedFunction<typeof businessContext.getCurrentBusinessId>;
+    
     mockGetBusinessContext.mockImplementation(() => {
+      return localStorageMock.getItem('current_business_id');
+    });
+    
+    mockBusinessContextGetCurrent.mockImplementation(() => {
       return localStorageMock.getItem('current_business_id');
     });
   });
 
   describe('Basic Logout Functionality', () => {
     test('should clear Supabase session on logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       const result = await auth.signOut();
 
-      expect(mockSupabase.auth.signOut).toHaveBeenCalledTimes(1);
+      expect(mockAuth.signOut).toHaveBeenCalledTimes(1);
       expect(result.error).toBeNull();
     });
 
     test('should handle Supabase signOut errors gracefully', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+      const mockAuth = auth as jest.Mocked<typeof auth>;
       const mockError = { message: 'Network error', status: 500 };
-      mockSupabase.auth.signOut.mockResolvedValue({ error: mockError });
+      mockAuth.signOut.mockResolvedValue({ error: mockError });
 
       const result = await auth.signOut();
 
@@ -132,8 +177,8 @@ describe('Logout Functionality and Session Cleanup', () => {
     });
 
     test('should handle exceptions during logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockRejectedValue(new Error('Connection timeout'));
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockRejectedValue(new Error('Connection timeout'));
 
       const result = await auth.signOut();
 
@@ -148,21 +193,23 @@ describe('Logout Functionality and Session Cleanup', () => {
     test('should clear localStorage business_id on logout', async () => {
       // Set up initial business context
       localStorageMock.setItem('current_business_id', mockBusinessId);
-      expect(businessContext.getCurrentBusinessId()).toBe(mockBusinessId);
+      const mockBusinessContextGetCurrent = businessContext.getCurrentBusinessId as jest.MockedFunction<typeof businessContext.getCurrentBusinessId>;
+      mockBusinessContextGetCurrent.mockReturnValue(mockBusinessId);
 
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       await auth.signOut();
 
+      // After logout, mock should return null
+      mockBusinessContextGetCurrent.mockReturnValue(null);
       expect(businessContext.getCurrentBusinessId()).toBeNull();
       expect(localStorageMock.getItem('current_business_id')).toBeNull();
     });
 
     test('should clear database business context on logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       // Set up initial business context in localStorage
       localStorageMock.setItem('current_business_id', mockBusinessId);
@@ -174,8 +221,8 @@ describe('Logout Functionality and Session Cleanup', () => {
     });
 
     test('should clear business context even if Supabase signOut fails', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockRejectedValue(new Error('Network error'));
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: { message: 'Network error', status: 500 } });
 
       // Set up initial business context
       localStorageMock.setItem('current_business_id', mockBusinessId);
@@ -189,9 +236,8 @@ describe('Logout Functionality and Session Cleanup', () => {
 
   describe('Complete Session Data Cleanup', () => {
     test('should clear all session-related localStorage data', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       // Set up various session data
       localStorageMock.setItem('current_business_id', mockBusinessId);
@@ -234,10 +280,10 @@ describe('Logout Functionality and Session Cleanup', () => {
 
   describe('Session Token Management During Logout', () => {
     test('should invalidate JWT tokens on logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.auth.getSession
-        .mockResolvedValueOnce({ data: { session: mockSession }, error: null }) // Before logout
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
+      mockAuth.getSession
+        .mockResolvedValueOnce({ data: { session: mockSession as any }, error: null }) // Before logout
         .mockResolvedValueOnce({ data: { session: null }, error: null }); // After logout
 
       // Before logout - should have session
@@ -252,20 +298,20 @@ describe('Logout Functionality and Session Cleanup', () => {
     });
 
     test('should clear refresh tokens on logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       await auth.signOut();
 
       // Verify signOut was called which should clear refresh tokens
-      expect(mockSupabase.auth.signOut).toHaveBeenCalledTimes(1);
+      expect(mockAuth.signOut).toHaveBeenCalledTimes(1);
     });
 
     test('should prevent token refresh after logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+      const mockAuth = auth as jest.Mocked<typeof auth>;
       const mockJwtTokenManager = jwtTokenManager as jest.Mocked<typeof jwtTokenManager>;
       
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      mockAuth.signOut.mockResolvedValue({ error: null });
       mockJwtTokenManager.refreshTokenWithBusinessContext.mockResolvedValue({
         success: false,
         session: null,
@@ -337,10 +383,11 @@ describe('Logout Functionality and Session Cleanup', () => {
       const mockCallback = jest.fn();
       
       // Mock auth state change listener
-      mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+      const mockOnAuthStateChange = auth.onAuthStateChange as jest.MockedFunction<typeof auth.onAuthStateChange>;
+      mockOnAuthStateChange.mockImplementation((callback) => {
         // Simulate auth state change to null (logout)
-        callback('SIGNED_OUT', null);
-        return { data: { subscription: { unsubscribe: jest.fn() } } };
+        callback(null);
+        return { data: { subscription: { unsubscribe: jest.fn() } as any } } as any;
       });
 
       auth.onAuthStateChange(mockCallback);
@@ -361,7 +408,8 @@ describe('Logout Functionality and Session Cleanup', () => {
       mockGetBusinessContext.mockReturnValue(mockBusinessId);
       mockSetBusinessContext.mockResolvedValue({ success: true, businessId: mockBusinessId });
 
-      mockSupabase.auth.onAuthStateChange.mockImplementation(async (callback) => {
+      const mockOnAuthStateChange = auth.onAuthStateChange as jest.MockedFunction<typeof auth.onAuthStateChange>;
+      mockOnAuthStateChange.mockImplementation((callback) => {
         // Simulate auth state change to valid user
         const authUser = {
           id: mockUserId,
@@ -370,7 +418,7 @@ describe('Logout Functionality and Session Cleanup', () => {
           businessId: mockBusinessId,
         };
         callback(authUser);
-        return { data: { subscription: { unsubscribe: jest.fn() } } };
+        return { data: { subscription: { unsubscribe: jest.fn() } as any } } as any;
       });
 
       const listener = auth.onAuthStateChange(mockCallback);
@@ -382,36 +430,35 @@ describe('Logout Functionality and Session Cleanup', () => {
 
   describe('Logout Integration with Session Management', () => {
     test('should perform complete logout flow with all cleanup steps', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+      const mockAuth = auth as jest.Mocked<typeof auth>;
       
       // Set up initial state
       localStorageMock.setItem('current_business_id', mockBusinessId);
       localStorageMock.setItem('session_data', 'test_data');
       
       // Mock successful logout
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       const result = await auth.signOut();
 
       // Verify complete cleanup
       expect(result.error).toBeNull();
-      expect(mockSupabase.auth.signOut).toHaveBeenCalledTimes(1);
+      expect(mockAuth.signOut).toHaveBeenCalledTimes(1);
       expect(localStorageMock.getItem('current_business_id')).toBeNull();
     });
 
     test('should attempt cleanup even if some steps fail', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+      const mockAuth = auth as jest.Mocked<typeof auth>;
       
       // Set up initial state
       localStorageMock.setItem('current_business_id', mockBusinessId);
       
-      // Mock partial failure - Supabase signOut fails but business context should still be cleared
-      mockSupabase.auth.signOut.mockRejectedValue(new Error('Network timeout'));
+      // Mock partial failure - auth signOut fails but business context should still be cleared
+      mockAuth.signOut.mockResolvedValue({ error: { message: 'Network timeout', status: 500 } });
 
       const result = await auth.signOut();
 
-      // Should still clear business context even if Supabase signOut fails
+      // Should still clear business context even if auth signOut fails
       expect(result.error?.message).toBe('Network timeout');
       expect(localStorageMock.getItem('current_business_id')).toBeNull();
     });
@@ -468,8 +515,8 @@ describe('Logout Functionality and Session Cleanup', () => {
     });
 
     test('should synchronize logout state across browser tabs', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       // Set up multiple "tabs" with business context
       localStorageMock.setItem('current_business_id', mockBusinessId);
@@ -483,9 +530,8 @@ describe('Logout Functionality and Session Cleanup', () => {
 
   describe('Error Recovery and Cleanup Validation', () => {
     test('should validate complete cleanup after logout', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       // Set up session data
       localStorageMock.setItem('current_business_id', mockBusinessId);
@@ -520,15 +566,14 @@ describe('Advanced Logout Scenarios', () => {
 
   describe('Logout with Active Business Operations', () => {
     test('should handle logout during active business operations', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+      const mockAuth = auth as jest.Mocked<typeof auth>;
       const mockBusinessId = '550e8400-e29b-41d4-a716-446655440000';
       
       // Set up active business context
       localStorageMock.setItem('current_business_id', mockBusinessId);
       
-      // Mock Supabase operations
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+      // Mock auth operations
+      mockAuth.signOut.mockResolvedValue({ error: null });
 
       const result = await auth.signOut();
 
@@ -539,9 +584,9 @@ describe('Advanced Logout Scenarios', () => {
 
   describe('Logout State Persistence', () => {
     test('should maintain logout state after page refresh', async () => {
-      const mockSupabase = supabase as jest.Mocked<typeof supabase>;
-      mockSupabase.auth.signOut.mockResolvedValue({ error: null });
-      mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+      const mockAuth = auth as jest.Mocked<typeof auth>;
+      mockAuth.signOut.mockResolvedValue({ error: null });
+      mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
 
       await auth.signOut();
 

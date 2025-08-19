@@ -66,7 +66,7 @@ describe('Auth Functions', () => {
           password: 'password123',
         });
         expect(result).toEqual(mockResponse);
-        expect(result.data.user.email).toBe('test@example.com');
+        expect(result.data.user?.email).toBe('test@example.com');
       });
 
       it('should handle registration with invalid email format', async () => {
@@ -272,7 +272,7 @@ describe('Auth Functions', () => {
         const mockSession = { user: mockUser };
 
         // Mock the onAuthStateChange to immediately call the callback
-        mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+        mockSupabase.auth.onAuthStateChange.mockImplementation((callback: (event: string, session: unknown) => void) => {
           callback('SIGNED_IN', mockSession);
           return { data: { subscription: {} } };
         });
@@ -289,7 +289,7 @@ describe('Auth Functions', () => {
       it('should call callback with null when user signs out', () => {
         const mockCallback = jest.fn();
 
-        mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+        mockSupabase.auth.onAuthStateChange.mockImplementation((callback: (event: string, session: unknown) => void) => {
           callback('SIGNED_OUT', null);
           return { data: { subscription: {} } };
         });
@@ -532,7 +532,7 @@ describe('Auth Functions', () => {
         const mockSession = { user: mockUser };
         mockSupabase.rpc.mockResolvedValue({ error: null });
 
-        mockSupabase.auth.onAuthStateChange.mockImplementation(async (callback) => {
+        mockSupabase.auth.onAuthStateChange.mockImplementation(async (callback: (event: string, session: unknown) => void) => {
           await callback('SIGNED_IN', mockSession);
           return { data: { subscription: {} } };
         });
@@ -554,7 +554,7 @@ describe('Auth Functions', () => {
       it('should clear business context on auth state change to signed out', async () => {
         const mockCallback = jest.fn();
 
-        mockSupabase.auth.onAuthStateChange.mockImplementation(async (callback) => {
+        mockSupabase.auth.onAuthStateChange.mockImplementation(async (callback: (event: string, session: unknown) => void) => {
           await callback('SIGNED_OUT', null);
           return { data: { subscription: {} } };
         });

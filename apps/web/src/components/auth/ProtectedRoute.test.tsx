@@ -32,8 +32,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: true,
-      businessId: null,
+      isInitialized: false,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -50,8 +59,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue('business-123'),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -67,8 +85,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -88,8 +115,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -107,8 +143,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -128,8 +173,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue('business-123'),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -145,8 +199,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -163,8 +226,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: false,
-      businessId: null,
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
 
     render(
@@ -189,8 +261,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: null,
       isLoading: true,
-      businessId: null,
+      isInitialized: false,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue(null),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
     rerender(
       <ProtectedRoute>
@@ -202,8 +283,17 @@ describe('ProtectedRoute', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-123', email: 'test@example.com' },
       isLoading: false,
-      businessId: 'business-123',
+      isInitialized: true,
+      signIn: jest.fn(),
+      signUp: jest.fn(),
       signOut: jest.fn(),
+      enhancedSignOut: jest.fn(),
+      refreshSession: jest.fn(),
+      setBusinessContext: jest.fn(),
+      getCurrentBusinessId: jest.fn().mockReturnValue('business-123'),
+      initializeSessionTimeout: jest.fn(),
+      resetSessionTimeout: jest.fn(),
+      stopSessionTimeout: jest.fn(),
     });
     rerender(
       <ProtectedRoute>

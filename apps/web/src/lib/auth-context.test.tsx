@@ -30,8 +30,10 @@ const mockLocation = {
 };
 
 // Mock location assignment more thoroughly
-delete (window as unknown as { location?: unknown }).location;
-window.location = mockLocation as Location;
+Object.defineProperty(window, 'location', {
+  value: mockLocation,
+  writable: true,
+});
 
 const mockAuth = auth as jest.Mocked<typeof auth>;
 const mockBusinessContext = businessContext as jest.Mocked<typeof businessContext>;
@@ -86,7 +88,7 @@ describe('AuthProvider', () => {
       error: null
     });
     mockAuth.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
+      data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } }
     });
 
     render(
@@ -108,9 +110,18 @@ describe('AuthProvider', () => {
     const mockUser = {
       id: 'user-123',
       email: 'test@example.com',
-      user_metadata: { name: 'Test User' }
+      user_metadata: { name: 'Test User' },
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2023-01-01T00:00:00Z'
     };
-    const mockSession = { user: mockUser };
+    const mockSession = { 
+      user: mockUser,
+      access_token: 'test-token',
+      refresh_token: 'test-refresh',
+      expires_in: 3600,
+      token_type: 'bearer'
+    };
 
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSession },
@@ -125,7 +136,7 @@ describe('AuthProvider', () => {
       error: null
     });
     mockAuth.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
+      data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } }
     });
 
     render(
@@ -147,8 +158,18 @@ describe('AuthProvider', () => {
     const mockUser = {
       id: 'user-123',
       email: 'test@example.com',
+      user_metadata: {},
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2023-01-01T00:00:00Z'
     };
-    const mockSession = { user: mockUser };
+    const mockSession = { 
+      user: mockUser,
+      access_token: 'test-token',
+      refresh_token: 'test-refresh',
+      expires_in: 3600,
+      token_type: 'bearer'
+    };
 
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSession },
@@ -160,7 +181,7 @@ describe('AuthProvider', () => {
       error: { message: 'Invalid business context', status: 403 }
     });
     mockAuth.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
+      data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } }
     });
 
     render(
@@ -185,7 +206,7 @@ describe('AuthProvider', () => {
     });
     mockAuth.onAuthStateChange.mockImplementation((callback) => {
       authStateCallback = callback;
-      return { data: { subscription: { unsubscribe: jest.fn() } } };
+      return { data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } } };
     });
 
     render(
@@ -200,12 +221,14 @@ describe('AuthProvider', () => {
 
     // Simulate auth state change
     act(() => {
-      authStateCallback({
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        businessId: 'business-123'
-      });
+      if (authStateCallback) {
+        authStateCallback({
+          id: 'user-123',
+          email: 'test@example.com',
+          name: 'Test User',
+          businessId: 'business-123'
+        });
+      }
     });
 
     expect(screen.getByTestId('user')).toHaveTextContent('test@example.com');
@@ -237,7 +260,7 @@ describe('useRequireAuth hook', () => {
       error: null
     });
     mockAuth.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
+      data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } }
     });
   });
 
@@ -257,8 +280,18 @@ describe('useRequireAuth hook', () => {
     const mockUser = {
       id: 'user-123',
       email: 'test@example.com',
+      user_metadata: {},
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2023-01-01T00:00:00Z'
     };
-    const mockSession = { user: mockUser };
+    const mockSession = { 
+      user: mockUser,
+      access_token: 'test-token',
+      refresh_token: 'test-refresh',
+      expires_in: 3600,
+      token_type: 'bearer'
+    };
 
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSession },
@@ -283,7 +316,7 @@ describe('useRequireAuth hook', () => {
 describe('useRequireBusinessContext hook', () => {
   beforeEach(() => {
     mockAuth.onAuthStateChange.mockReturnValue({
-      data: { subscription: { unsubscribe: jest.fn() } }
+      data: { subscription: { id: 'test-id', callback: jest.fn(), unsubscribe: jest.fn() } }
     });
   });
 
@@ -291,8 +324,18 @@ describe('useRequireBusinessContext hook', () => {
     const mockUser = {
       id: 'user-123',
       email: 'test@example.com',
+      user_metadata: {},
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2023-01-01T00:00:00Z'
     };
-    const mockSession = { user: mockUser };
+    const mockSession = { 
+      user: mockUser,
+      access_token: 'test-token',
+      refresh_token: 'test-refresh',
+      expires_in: 3600,
+      token_type: 'bearer'
+    };
 
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSession },
@@ -315,8 +358,18 @@ describe('useRequireBusinessContext hook', () => {
     const mockUser = {
       id: 'user-123',
       email: 'test@example.com',
+      user_metadata: {},
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2023-01-01T00:00:00Z'
     };
-    const mockSession = { user: mockUser };
+    const mockSession = { 
+      user: mockUser,
+      access_token: 'test-token',
+      refresh_token: 'test-refresh',
+      expires_in: 3600,
+      token_type: 'bearer'
+    };
 
     mockAuth.getSession.mockResolvedValue({
       data: { session: mockSession },

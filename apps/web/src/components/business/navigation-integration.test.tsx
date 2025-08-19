@@ -7,6 +7,7 @@ import { BusinessSidebar } from './sidebar';
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
   usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 jest.mock('next/link', () => {

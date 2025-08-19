@@ -5,6 +5,7 @@
  * This validates the core business logic separate from React component testing
  */
 
+import { z } from 'zod';
 import { 
   BusinessRegistrationSchema, 
   ColombianPhoneSchema, 
@@ -50,9 +51,8 @@ describe('Business Registration Validation', () => {
       try {
         ColombianPhoneSchema.parse('invalid');
       } catch (error: unknown) {
-        if (error instanceof Error && 'issues' in error) {
-          const zodError = error as { issues: Array<{ message: string }> };
-          expect(zodError.issues[0].message).toBe('Formato de teléfono colombiano inválido');
+        if (error instanceof z.ZodError) {
+          expect(error.issues[0].message).toBe('Formato de teléfono colombiano inválido');
         }
       }
     });
@@ -131,9 +131,8 @@ describe('Business Registration Validation', () => {
           department: ''
         });
       } catch (error: unknown) {
-        if (error instanceof Error && 'issues' in error) {
-          const zodError = error as { issues: Array<{ path: string[], message: string }> };
-          const errors = extractValidationErrors(zodError);
+        if (error instanceof z.ZodError) {
+          const errors = extractValidationErrors(error);
           expect(errors.street).toBe('La dirección es requerida');
           expect(errors.city).toBe('La ciudad es requerida');
           expect(errors.department).toBe('Seleccione un departamento');
@@ -175,9 +174,8 @@ describe('Business Registration Validation', () => {
       try {
         BusinessRegistrationSchema.parse(incompleteData);
       } catch (error: unknown) {
-        if (error instanceof Error && 'issues' in error) {
-          const zodError = error as { issues: Array<{ path: string[], message: string }> };
-          const errors = extractValidationErrors(zodError);
+        if (error instanceof z.ZodError) {
+          const errors = extractValidationErrors(error);
           expect(errors.name).toBe('El nombre es requerido');
           expect(errors.email).toBe('Email inválido'); // Zod email validation runs first on empty string
           expect(errors.phone).toBe('Formato de teléfono colombiano inválido'); // Regex validation runs first on empty string
@@ -203,9 +201,8 @@ describe('Business Registration Validation', () => {
             }
           });
         } catch (error: unknown) {
-          if (error instanceof Error && 'issues' in error) {
-            const zodError = error as { issues: Array<{ path: string[], message: string }> };
-            const errors = extractValidationErrors(zodError);
+          if (error instanceof z.ZodError) {
+            const errors = extractValidationErrors(error);
             expect(errors.email).toBe('Email inválido');
           }
         }

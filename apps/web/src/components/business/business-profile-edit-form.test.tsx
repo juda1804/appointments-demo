@@ -48,6 +48,12 @@ describe('BusinessProfileEditForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Suppress console.error during tests
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('renders form with current business data', () => {
@@ -63,7 +69,15 @@ describe('BusinessProfileEditForm', () => {
     expect(screen.getByDisplayValue('Servicios de belleza profesional')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Carrera 15 #45-67')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Medellín')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Antioquia')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('050010')).toBeInTheDocument();
+    const phoneInputs = screen.getAllByDisplayValue('+57 301 234 5678');
+    expect(phoneInputs).toHaveLength(2); // Phone and WhatsApp fields
     expect(screen.getByDisplayValue('contacto@bellavista.com.co')).toBeInTheDocument();
+    
+    // Check form title and description
+    expect(screen.getByText('Editar Perfil del Negocio')).toBeInTheDocument();
+    expect(screen.getByText(/actualiza la información de tu negocio/i)).toBeInTheDocument();
   });
 
   it('validates required fields in Spanish', async () => {
@@ -79,7 +93,7 @@ describe('BusinessProfileEditForm', () => {
     const nameInput = screen.getByDisplayValue('Peluquería Bella Vista');
     await userEvent.clear(nameInput);
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -98,11 +112,11 @@ describe('BusinessProfileEditForm', () => {
       />
     );
 
-    const phoneInput = screen.getByDisplayValue('+57 301 234 5678');
+    const phoneInput = screen.getByLabelText(/^teléfono/i);
     await userEvent.clear(phoneInput);
     await userEvent.type(phoneInput, '123456789');
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -122,13 +136,13 @@ describe('BusinessProfileEditForm', () => {
     );
 
     const departmentSelect = screen.getByDisplayValue('Antioquia');
-    await userEvent.selectOptions(departmentSelect, 'InvalidDepartment');
+    await userEvent.selectOptions(departmentSelect, '');
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/departamento colombiano inválido/i)).toBeInTheDocument();
+      expect(screen.getByText(/el departamento es requerido/i)).toBeInTheDocument();
     });
 
     expect(mockOnSave).not.toHaveBeenCalled();
@@ -143,7 +157,7 @@ describe('BusinessProfileEditForm', () => {
       />
     );
 
-    const phoneInput = screen.getByDisplayValue('+57 301 234 5678');
+    const phoneInput = screen.getByLabelText(/^teléfono/i);
     await userEvent.clear(phoneInput);
     await userEvent.type(phoneInput, '3012345678');
 
@@ -153,7 +167,7 @@ describe('BusinessProfileEditForm', () => {
   });
 
   it('shows loading state during save', async () => {
-    const slowMockOnSave = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+    const slowMockOnSave = jest.fn(() => new Promise<void>(resolve => setTimeout(resolve, 100)));
     
     render(
       <BusinessProfileEditForm 
@@ -163,7 +177,7 @@ describe('BusinessProfileEditForm', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -184,7 +198,7 @@ describe('BusinessProfileEditForm', () => {
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, 'Nuevo Nombre');
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -227,7 +241,7 @@ describe('BusinessProfileEditForm', () => {
     expect(screen.getByRole('option', { name: 'Valle del Cauca' })).toBeInTheDocument();
   });
 
-  it('validates email format', async () => {
+  it('validates email is required', async () => {
     render(
       <BusinessProfileEditForm 
         business={mockBusiness} 
@@ -236,15 +250,14 @@ describe('BusinessProfileEditForm', () => {
       />
     );
 
-    const emailInput = screen.getByDisplayValue('contacto@bellavista.com.co');
+    const emailInput = screen.getByLabelText(/correo electrónico/i);
     await userEvent.clear(emailInput);
-    await userEvent.type(emailInput, 'invalid-email');
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/formato de correo inválido/i)).toBeInTheDocument();
+      expect(screen.getByText('El correo electrónico es requerido')).toBeInTheDocument();
     });
 
     expect(mockOnSave).not.toHaveBeenCalled();
@@ -261,11 +274,101 @@ describe('BusinessProfileEditForm', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: /guardar/i });
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalled();
+    });
+  });
+
+  it('validates WhatsApp number format when provided', async () => {
+    render(
+      <BusinessProfileEditForm 
+        business={mockBusiness} 
+        onSave={mockOnSave} 
+        onCancel={mockOnCancel} 
+      />
+    );
+
+    const whatsappInput = screen.getByLabelText(/whatsapp/i);
+    await userEvent.clear(whatsappInput);
+    await userEvent.type(whatsappInput, '123456789');
+
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/formato de whatsapp colombiano inválido/i)).toBeInTheDocument();
+    });
+
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('clears field errors when user starts typing', async () => {
+    render(
+      <BusinessProfileEditForm 
+        business={mockBusiness} 
+        onSave={mockOnSave} 
+        onCancel={mockOnCancel} 
+      />
+    );
+
+    // First create an error by clearing required field
+    const nameInput = screen.getByDisplayValue('Peluquería Bella Vista');
+    await userEvent.clear(nameInput);
+
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/el nombre del negocio es requerido/i)).toBeInTheDocument();
+    });
+
+    // Now type something and error should clear
+    await userEvent.type(nameInput, 'New Name');
+
+    expect(screen.queryByText(/el nombre del negocio es requerido/i)).not.toBeInTheDocument();
+  });
+
+  it('handles form submission error gracefully', async () => {
+    const errorMockOnSave = jest.fn(() => Promise.reject(new Error('Network error')));
+    
+    render(
+      <BusinessProfileEditForm 
+        business={mockBusiness} 
+        onSave={errorMockOnSave} 
+        onCancel={mockOnCancel} 
+      />
+    );
+
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/error al guardar el perfil/i)).toBeInTheDocument();
+    });
+  });
+
+  it('disables buttons during loading state', async () => {
+    const slowMockOnSave = jest.fn(() => new Promise<void>(resolve => setTimeout(resolve, 100)));
+    
+    render(
+      <BusinessProfileEditForm 
+        business={mockBusiness} 
+        onSave={slowMockOnSave} 
+        onCancel={mockOnCancel} 
+      />
+    );
+
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
+    const cancelButton = screen.getByRole('button', { name: /cancelar/i });
+    
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(saveButton).toBeDisabled();
+      expect(cancelButton).toBeDisabled();
     });
   });
 
@@ -283,8 +386,47 @@ describe('BusinessProfileEditForm', () => {
     expect(screen.getByLabelText(/dirección/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/ciudad/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/departamento/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/código postal/i)).toBeInTheDocument();
+    expect(screen.getByText(/información de contacto/i)).toBeInTheDocument(); // This is a section header
     expect(screen.getByLabelText(/teléfono/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/whatsapp/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
+    
+    // Check Colombian-specific placeholders
+    expect(screen.getByPlaceholderText(/carrera 15/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/medellín/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/050010/i)).toBeInTheDocument();
+    const phoneInputPlaceholders = screen.getAllByPlaceholderText(/\+57 301 234 5678/i);
+    expect(phoneInputPlaceholders).toHaveLength(2); // Phone and WhatsApp fields
+  });
+
+  it('validates all required address fields', async () => {
+    render(
+      <BusinessProfileEditForm 
+        business={mockBusiness} 
+        onSave={mockOnSave} 
+        onCancel={mockOnCancel} 
+      />
+    );
+
+    // Clear all address fields
+    const streetInput = screen.getByDisplayValue('Carrera 15 #45-67');
+    const cityInput = screen.getByDisplayValue('Medellín');
+    const departmentSelect = screen.getByDisplayValue('Antioquia');
+    
+    await userEvent.clear(streetInput);
+    await userEvent.clear(cityInput);
+    await userEvent.selectOptions(departmentSelect, '');
+
+    const saveButton = screen.getByRole('button', { name: /guardar cambios/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/la dirección es requerida/i)).toBeInTheDocument();
+      expect(screen.getByText(/la ciudad es requerida/i)).toBeInTheDocument();
+      expect(screen.getByText(/el departamento es requerido/i)).toBeInTheDocument();
+    });
+
+    expect(mockOnSave).not.toHaveBeenCalled();
   });
 });

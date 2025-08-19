@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 // Mock Next.js components and hooks
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
-  useSearchParams: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 jest.mock('next/headers', () => ({
@@ -35,11 +35,31 @@ describe('Business Registration Page Integration Logic', () => {
       push: mockPush,
       replace: jest.fn(),
       refresh: jest.fn(),
-    });
+      back: jest.fn(),
+      forward: jest.fn(),
+      prefetch: jest.fn(),
+    } as any);
 
     // Setup fetch mock
     mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
   });
+
+  // Helper function to create proper Response mocks
+  const createMockResponse = (response: any, status: number, statusText: string): Response => ({
+    ...response,
+    headers: new Headers(),
+    redirected: false,
+    statusText,
+    type: 'basic',
+    url: 'http://localhost:3000/api/business/register',
+    body: null,
+    bodyUsed: false,
+    clone: jest.fn(),
+    arrayBuffer: jest.fn(),
+    blob: jest.fn(),
+    formData: jest.fn(),
+    text: jest.fn(),
+  } as Response);
 
   const validBusinessData: BusinessRegistrationData = {
     name: 'Mi Negocio Colombiano',
@@ -71,7 +91,7 @@ describe('Business Registration Page Integration Logic', () => {
         })
       };
 
-      mockFetch.mockResolvedValue(mockResponse as Response);
+      mockFetch.mockResolvedValue(createMockResponse(mockResponse, 201, 'Created'));
 
       // Simulate the registration flow logic
       const registrationResult = await handleBusinessRegistration(validBusinessData);
@@ -105,7 +125,7 @@ describe('Business Registration Page Integration Logic', () => {
         })
       };
 
-      mockFetch.mockResolvedValue(mockResponse as Response);
+      mockFetch.mockResolvedValue(createMockResponse(mockResponse, 400, 'Bad Request'));
 
       const invalidData = {
         ...validBusinessData,
@@ -136,7 +156,7 @@ describe('Business Registration Page Integration Logic', () => {
         })
       };
 
-      mockFetch.mockResolvedValue(mockResponse as Response);
+      mockFetch.mockResolvedValue(createMockResponse(mockResponse, 409, 'Conflict'));
 
       const registrationResult = await handleBusinessRegistration(validBusinessData);
 
@@ -158,7 +178,7 @@ describe('Business Registration Page Integration Logic', () => {
         })
       };
 
-      mockFetch.mockResolvedValue(mockResponse as Response);
+      mockFetch.mockResolvedValue(createMockResponse(mockResponse, 500, 'Internal Server Error'));
 
       const registrationResult = await handleBusinessRegistration(validBusinessData);
 
@@ -194,7 +214,7 @@ describe('Business Registration Page Integration Logic', () => {
       // Simulate slow network response
       mockFetch.mockImplementation(() => 
         new Promise<Response>(resolve => {
-          setTimeout(() => resolve(mockResponse as Response), 100);
+          setTimeout(() => resolve(createMockResponse(mockResponse, 201, 'Created')), 100);
         })
       );
 
@@ -251,7 +271,7 @@ describe('Business Registration Page Integration Logic', () => {
         })
       };
 
-      mockFetch.mockResolvedValue(mockResponse as Response);
+      mockFetch.mockResolvedValue(createMockResponse(mockResponse, 201, 'Created'));
 
       const registrationResult = await handleBusinessRegistration(validBusinessData);
       

@@ -20,7 +20,7 @@ export const HeroiconMocks = {
 };
 
 // Mock Next.js Link
-export const MockLink = React.forwardRef<HTMLAnchorElement, { children: React.ReactNode; href: string; [key: string]: unknown }>(
+export const MockLink = React.forwardRef<HTMLAnchorElement, { children: React.ReactNode; href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>>(
   function MockLink({ children, href, ...props }, ref) {
     return (
       <a href={href} ref={ref} {...props}>

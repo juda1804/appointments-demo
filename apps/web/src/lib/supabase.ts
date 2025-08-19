@@ -18,7 +18,7 @@ function createSupabaseClient() {
     if (typeof window !== 'undefined') {
       // Browser environment - use SSR-compatible browser client
       const { createBrowserClient } = require('@supabase/ssr');
-      return createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+      return createBrowserClient(supabaseUrl, supabaseAnonKey);
     } else {
       // Server environment - use regular client without session persistence
       return createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -43,7 +43,7 @@ export const supabase = new Proxy({} as SupabaseClient<Database>, {
     if (!_supabaseClient) {
       _supabaseClient = createSupabaseClient();
     }
-    return _supabaseClient[prop as keyof SupabaseClient<Database>];
+    return _supabaseClient![prop as keyof SupabaseClient<Database>];
   }
 });
 

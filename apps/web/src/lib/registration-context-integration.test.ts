@@ -179,7 +179,8 @@ describe('Registration Multi-Tenant Context Integration', () => {
         email: 'contacto@centromedico.com',
         settings: {
           timezone: 'America/Bogota',
-          currency: 'COP'
+          currency: 'COP',
+          businessHours: []
         }
       };
 
@@ -227,7 +228,7 @@ describe('Registration Multi-Tenant Context Integration', () => {
         phone: registrationRequest.phone as string,
         whatsappNumber: registrationRequest.whatsappNumber as string,
         email: registrationRequest.email,
-        settings: registrationRequest.settings as Record<string, unknown>
+        settings: registrationRequest.settings
       });
 
       // Simulate context setup

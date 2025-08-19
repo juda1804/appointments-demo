@@ -571,7 +571,7 @@ describe('Unified Business-User Registration API', () => {
       };
 
       expect(successResponse.success).toBe(true);
-      expect(successResponse.data.email_verification_sent).toBe(true);
+      expect(successResponse.data?.email_verification_sent).toBe(true);
       expect(successResponse.message).toContain('Revisa tu email');
     });
 

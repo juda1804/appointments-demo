@@ -294,8 +294,8 @@ describe('RLS Context Management', () => {
       expect(result.isIsolated).toBe(true)
       expect(result.business1Data).toHaveLength(1)
       expect(result.business2Data).toHaveLength(1)
-      expect(result.business1Data[0].id).toBe('data-1')
-      expect(result.business2Data[0].id).toBe('data-2')
+      expect(result.business1Data![0].id).toBe('data-1')
+      expect(result.business2Data![0].id).toBe('data-2')
     })
 
     test('should detect isolation failures', async () => {

@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
   usePathname: jest.fn(() => '/dashboard'),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock Next.js Link

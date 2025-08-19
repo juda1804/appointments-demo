@@ -144,7 +144,7 @@ describe('BusinessSettingsPanel', () => {
   });
 
   it('shows loading state during save', async () => {
-    const slowMockOnSave = jest.fn(() => new Promise(resolve => setTimeout(resolve, 100)));
+    const slowMockOnSave = jest.fn(() => new Promise<void>(resolve => setTimeout(resolve, 100)));
     
     render(<BusinessSettingsPanel settings={mockSettings} onSave={slowMockOnSave} />);
 
@@ -183,14 +183,14 @@ describe('BusinessSettingsPanel', () => {
     render(<BusinessSettingsPanel settings={mockSettings} onSave={mockOnSave} />);
 
     // Should have some context about Colombian timezone
-    expect(screen.getByText(/bogotá/i)).toBeInTheDocument();
+    expect(screen.getByText(/recomendado: bogotá para negocios colombianos/i)).toBeInTheDocument();
   });
 
   it('shows Colombian peso currency information', () => {
     render(<BusinessSettingsPanel settings={mockSettings} onSave={mockOnSave} />);
 
     // Should show peso context
-    expect(screen.getByText(/cop/i)).toBeInTheDocument();
+    expect(screen.getByText(/peso colombiano para tu negocio local/i)).toBeInTheDocument();
   });
 
   it('applies correct responsive styling', () => {

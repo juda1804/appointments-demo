@@ -7,7 +7,7 @@ import VerifyEmailPage from './page';
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
-  useSearchParams: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock Supabase

@@ -22,7 +22,7 @@ const customJestConfig = {
     '.*dashboard/page\\.test\\.tsx$',
     '.*\\(auth\\)/register/page\\.test\\.tsx$',
     '.*ProtectedRoute\\.test\\.tsx$',
-    '.*jwt-token-management\\.test\\.ts$',
+    '.*jwt-token-management\\.test\\.ts$', // Keep disabled due to memory issues
     '.*rls-isolation-verification\\.test\\.ts$',
     '.*logout-integration-verification\\.test\\.ts$',
     '.*logout-session-management\\.test\\.ts$',

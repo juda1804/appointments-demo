@@ -135,8 +135,28 @@ describe('RegisterPage', () => {
     const user = userEvent.setup();
     mockAuth.signUp.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
-        session: { access_token: 'token' }
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
       },
       error: null
     });
@@ -163,7 +183,14 @@ describe('RegisterPage', () => {
     const user = userEvent.setup();
     mockAuth.signUp.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
         session: null // No session means email verification required
       },
       error: null
@@ -212,9 +239,9 @@ describe('RegisterPage', () => {
 
   it('shows loading state during registration', async () => {
     const user = userEvent.setup();
-    let resolveSignUp: (value: { data: { user: { id: string }; session: { access_token: string } }; error: null }) => void;
+    let resolveSignUp: (value: any) => void;
     mockAuth.signUp.mockImplementation(() => 
-      new Promise<{ data: { user: { id: string }; session: { access_token: string } }; error: null }>(resolve => {
+      new Promise(resolve => {
         resolveSignUp = resolve;
       })
     );
@@ -236,7 +263,28 @@ describe('RegisterPage', () => {
     
     // Resolve the promise
     resolveSignUp!({
-      data: { user: { id: 'user-123' }, session: { access_token: 'token' } },
+      data: {
+        user: {
+          id: 'user-123',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
+      },
       error: null
     });
     

@@ -7,7 +7,7 @@ import { auth } from '@/lib/auth';
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
-  useSearchParams: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // Mock auth module
@@ -210,8 +210,28 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     mockAuth.signIn.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
-        session: { access_token: 'token' }
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
       },
       error: null
     });
@@ -323,9 +343,9 @@ describe('LoginPage', () => {
 
   it('shows loading state during login', async () => {
     const user = userEvent.setup();
-    let resolveSignIn: (value: { data: { user: { id: string }; session: { access_token: string } }; error: null }) => void;
+    let resolveSignIn: (value: any) => void;
     mockAuth.signIn.mockImplementation(() => 
-      new Promise<{ data: { user: { id: string }; session: { access_token: string } }; error: null }>(resolve => {
+      new Promise(resolve => {
         resolveSignIn = resolve;
       })
     );
@@ -345,7 +365,28 @@ describe('LoginPage', () => {
     
     // Resolve the promise
     resolveSignIn!({
-      data: { user: { id: 'user-123' }, session: { access_token: 'token' } },
+      data: {
+        user: {
+          id: 'user-123',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
+      },
       error: null
     });
     
@@ -442,8 +483,28 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     mockAuth.signIn.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
-        session: { access_token: 'token' }
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
       },
       error: null
     });
@@ -469,8 +530,28 @@ describe('LoginPage', () => {
     mockSearchParamsGet.mockReturnValue('%2Fsettings%2Fprofile');
     mockAuth.signIn.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
-        session: { access_token: 'token' }
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
       },
       error: null
     });
@@ -497,8 +578,28 @@ describe('LoginPage', () => {
     mockSearchParamsGet.mockReturnValue(null);
     mockAuth.signIn.mockResolvedValue({
       data: { 
-        user: { id: 'user-123', email: 'test@example.com' },
-        session: { access_token: 'token' }
+        user: {
+          id: 'user-123',
+          email: 'test@example.com',
+          aud: 'authenticated',
+          created_at: '2023-01-01T00:00:00Z',
+          app_metadata: { provider: 'email' },
+          user_metadata: {}
+        },
+        session: {
+          access_token: 'token',
+          token_type: 'bearer',
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            created_at: '2023-01-01T00:00:00Z',
+            app_metadata: { provider: 'email' },
+            user_metadata: {}
+          },
+          refresh_token: 'refresh_token',
+          expires_in: 3600
+        }
       },
       error: null
     });

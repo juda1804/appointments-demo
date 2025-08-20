@@ -142,7 +142,7 @@ export function BusinessProfileCard({ business, onEdit }: BusinessProfileCardPro
       {/* Footer with last update */}
       <div className="mt-6 pt-4 border-t border-gray-200">
         <p className="text-xs text-gray-500">
-          Última actualización: {business.updatedAt.toLocaleDateString('es-CO', {
+          Última actualización: {new Date(business.updatedAt).toLocaleDateString('es-CO', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',

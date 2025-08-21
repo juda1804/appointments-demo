@@ -86,6 +86,7 @@ describe('BusinessLayout', () => {
       refreshSession: jest.fn(),
       setBusinessContext: jest.fn(),
       getCurrentBusinessId: mockGetCurrentBusinessId,
+      getCurrentBusinessIdAsync: jest.fn(),
       initializeSessionTimeout: jest.fn(),
       resetSessionTimeout: jest.fn(),
       stopSessionTimeout: jest.fn(),

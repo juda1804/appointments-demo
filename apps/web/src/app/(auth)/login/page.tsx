@@ -22,16 +22,31 @@ function LoginForm() {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        const { data } = await auth.getSession();
+        console.log('🔐 Login: Checking existing authentication...');
+        
+        // Check session with improved error handling
+        const result = await auth.getSession();
+        const { data, error } = result;
+        
+        if (error) {
+          console.warn('🔐 Login: Session check failed:', error.message);
+          // Continue to show login form if session check fails
+          return;
+        }
+        
         if (data.session) {
+          console.log('🔐 Login: User already authenticated, redirecting...');
           // User is already authenticated, redirect to dashboard
           const returnUrl = searchParams.get('returnUrl');
           const redirectPath = returnUrl ? decodeURIComponent(returnUrl) : '/dashboard';
           router.push(redirectPath);
           return;
         }
+        
+        console.log('🔐 Login: No existing session, showing login form');
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        console.error('🔐 Login: Error checking authentication:', error);
+        // Continue to show login form even if auth check fails
       } finally {
         setCheckingAuth(false);
       }

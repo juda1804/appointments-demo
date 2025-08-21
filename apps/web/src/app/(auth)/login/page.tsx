@@ -22,16 +22,30 @@ function LoginForm() {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        const { data } = await auth.getSession();
+        console.log('🔐 Login: Checking existing authentication...');
+        
+        // Add timeout to prevent infinite loading
+        const authCheckPromise = auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+        );
+        
+        const result = await Promise.race([authCheckPromise, timeoutPromise]);
+        const { data } = result as Awaited<ReturnType<typeof auth.getSession>>;
+        
         if (data.session) {
+          console.log('🔐 Login: User already authenticated, redirecting...');
           // User is already authenticated, redirect to dashboard
           const returnUrl = searchParams.get('returnUrl');
           const redirectPath = returnUrl ? decodeURIComponent(returnUrl) : '/dashboard';
           router.push(redirectPath);
           return;
         }
+        
+        console.log('🔐 Login: No existing session, showing login form');
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        console.error('🔐 Login: Error checking authentication:', error);
+        // Continue to show login form even if auth check fails
       } finally {
         setCheckingAuth(false);
       }

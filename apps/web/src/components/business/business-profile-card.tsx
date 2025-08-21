@@ -45,9 +45,9 @@ export function BusinessProfileCard({ business, onEdit }: BusinessProfileCardPro
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900">Dirección</p>
               <div className="text-sm text-gray-600 space-y-1">
-                <p>{business.address.street}</p>
+                <p>{business.address?.street}</p>
                 <p>{business.address.city}, {business.address.department}</p>
-                {business.address.postalCode && (
+                {business.address?.postalCode && (
                   <p className="text-xs text-gray-500">CP: {business.address.postalCode}</p>
                 )}
               </div>

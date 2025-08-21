@@ -2,12 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { auth, type AuthUser, type AuthError } from './auth';
-import { 
-  setBusinessContext as setRLSBusinessContext,
-  getBusinessContext,
-  clearBusinessContext,
-  getValidatedBusinessContext 
-} from './rls-context-management';
+import { businessContext } from './business-context';
 import type { SessionTimeoutConfig } from './logout-session-management';
 
 interface AuthContextType {
@@ -39,7 +34,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading = true
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize authentication state on mount with RLS context
@@ -49,20 +44,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const initializeAuth = async () => {
       try {
-        // Check for existing session
-        const { data: sessionData } = await auth.getSession();
+        console.log('🔐 AuthContext: Initializing auth state...');
+        
+        // Add timeout to prevent infinite loading
+        const authCheckPromise = auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
+        );
+        
+        const result = await Promise.race([authCheckPromise, timeoutPromise]);
+        const { data: sessionData } = result as Awaited<ReturnType<typeof auth.getSession>>;
         
         if (mounted && sessionData.session?.user) {
-          // Automatically restore and validate business context from RLS system
-          const validatedBusinessId = await getValidatedBusinessContext();
+          console.log('🔐 AuthContext: Session found, setting up user...');
           
-          // If we have a valid business context, ensure it's set in database
-          if (validatedBusinessId) {
-            const contextResult = await setRLSBusinessContext(validatedBusinessId);
-            if (!contextResult.success) {
-              console.warn('Failed to restore business context:', contextResult.error);
-              await clearBusinessContext();
+          // Try to get business context with auto-discovery and timeout
+          let validatedBusinessId: string | null = null;
+          try {
+            const businessContextPromise = businessContext.getCurrentBusinessId();
+            const businessTimeoutPromise = new Promise<string | null>((resolve) => 
+              setTimeout(() => resolve(null), 5000) // Increased timeout for discovery
+            );
+            
+            validatedBusinessId = await Promise.race([businessContextPromise, businessTimeoutPromise]);
+            
+            if (validatedBusinessId) {
+              console.log('🔐 AuthContext: Business context available:', validatedBusinessId);
+              // Context is already set by businessContext.getCurrentBusinessId if discovered
+            } else {
+              console.log('🔐 AuthContext: No business context found or discovered');
             }
+          } catch (businessError) {
+            console.warn('🔐 AuthContext: Business context error:', businessError);
+            validatedBusinessId = null;
           }
 
           const authUser: AuthUser = {
@@ -73,28 +87,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
           };
 
           if (mounted) {
+            console.log('🔐 AuthContext: Setting user state:', { 
+              userId: authUser.id, 
+              hasBusinessId: !!authUser.businessId 
+            });
             setUser(authUser);
           }
+        } else {
+          console.log('🔐 AuthContext: No existing session found');
         }
 
         // Set up auth state change listener with automatic business context setting
         authSubscription = auth.onAuthStateChange(async (authUser: AuthUser | null) => {
           if (mounted) {
             if (authUser) {
-              // User logged in - attempt to restore business context
-              const validatedBusinessId = await getValidatedBusinessContext();
+              // User logged in - attempt to get or discover business context
+              const validatedBusinessId = businessContext.getCurrentBusinessId();
               
               if (validatedBusinessId) {
-                const contextResult = await setRLSBusinessContext(validatedBusinessId);
-                if (contextResult.success) {
-                  authUser.businessId = validatedBusinessId;
-                } else {
-                  console.warn('Failed to set business context on auth change:', contextResult.error);
-                }
+                authUser.businessId = validatedBusinessId;
+                console.log('🔐 AuthContext: Business context set on auth change:', validatedBusinessId);
+              } else {
+                console.log('🔐 AuthContext: No business context available on auth change');
               }
             } else {
               // User logged out - clear business context
-              await clearBusinessContext();
+              await businessContext.clearBusinessContext();
             }
             
             setUser(authUser);
@@ -102,10 +120,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
 
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('🔐 AuthContext: Error initializing auth:', error);
       } finally {
         if (mounted) {
+          console.log('🔐 AuthContext: Auth initialization complete');
           setIsInitialized(true);
+          setIsLoading(false); // Critical: Always clear loading state
         }
       }
     };
@@ -129,14 +149,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return { error: result.error };
       }
 
-      // After successful login, attempt to restore business context automatically
+      // After successful login, attempt to get or discover business context automatically
       try {
-        const validatedBusinessId = await getValidatedBusinessContext();
+        const validatedBusinessId = businessContext.getCurrentBusinessId();
         if (validatedBusinessId) {
-          const contextResult = await setRLSBusinessContext(validatedBusinessId);
-          if (!contextResult.success) {
-            console.warn('Failed to restore business context after login:', contextResult.error);
-          }
+          console.log('🔐 AuthContext: Business context set after login:', validatedBusinessId);
+        } else {
+          console.log('🔐 AuthContext: No business context available after login');
         }
       } catch (contextError) {
         console.warn('Error during business context restoration:', contextError);
@@ -174,12 +193,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async () => {
     setIsLoading(true);
     try {
+      console.log('🔐 AuthContext: Starting basic signOut process');
+      
       // Clear business context before signing out
-      await clearBusinessContext();
-      await auth.signOut();
+      await businessContext.clearBusinessContext();
+      const result = await auth.signOut();
+      
+      if (result.error) {
+        console.error('🔐 AuthContext: Basic signOut failed:', result.error);
+        throw new Error(result.error.message);
+      }
+      
+      console.log('🔐 AuthContext: Basic signOut completed');
       // User state will be updated via the auth state change listener
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('🔐 AuthContext: Sign out error:', error);
+      
+      // Even if there's an error, try to clear local state
+      try {
+        await businessContext.clearBusinessContext();
+        setUser(null);
+      } catch (cleanupError) {
+        console.error('🔐 AuthContext: Failed to cleanup after signOut error:', cleanupError);
+      }
+      
+      throw error; // Re-throw to let caller handle
     } finally {
       setIsLoading(false);
     }
@@ -193,12 +231,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }) => {
     setIsLoading(true);
     try {
+      console.log('🔐 AuthContext: Starting enhanced signOut process with config:', config);
+      
       const result = await auth.enhancedSignOut(config);
-      // Note: If redirectToLogin is true, user will be redirected
+      
+      if (result.error) {
+        console.error('🔐 AuthContext: Enhanced signOut failed:', result.error);
+        
+        // Even if enhanced logout fails, try emergency cleanup
+        console.log('🔐 AuthContext: Attempting emergency cleanup after enhanced signOut failure');
+        try {
+          await businessContext.clearBusinessContext();
+          setUser(null);
+          
+          // Force redirect if configured, even on failure
+          if (config?.redirectToLogin && typeof window !== 'undefined') {
+            const redirectUrl = config.redirectUrl || '/login';
+            console.log('🔐 AuthContext: Force redirecting after failed logout to:', redirectUrl);
+            window.location.replace(redirectUrl);
+          }
+        } catch (cleanupError) {
+          console.error('🔐 AuthContext: Emergency cleanup also failed:', cleanupError);
+        }
+      } else {
+        console.log('🔐 AuthContext: Enhanced signOut completed successfully');
+        // Clear user state immediately to prevent UI inconsistencies
+        setUser(null);
+      }
+      
       return result;
     } catch (error) {
-      console.error('Enhanced sign out error:', error);
-      return { error: { message: 'Enhanced sign out failed' } };
+      console.error('🔐 AuthContext: Unexpected error during enhanced sign out:', error);
+      
+      // Emergency fallback - clear everything and redirect
+      try {
+        console.log('🔐 AuthContext: Performing emergency fallback logout');
+        await businessContext.clearBusinessContext();
+        setUser(null);
+        
+        if (config?.redirectToLogin && typeof window !== 'undefined') {
+          const redirectUrl = config.redirectUrl || '/login?reason=emergency';
+          console.log('🔐 AuthContext: Emergency redirect to:', redirectUrl);
+          window.location.replace(redirectUrl);
+        }
+      } catch (fallbackError) {
+        console.error('🔐 AuthContext: Emergency fallback failed:', fallbackError);
+      }
+      
+      return { 
+        error: { 
+          message: error instanceof Error ? error.message : 'Enhanced sign out failed' 
+        } 
+      };
     } finally {
       setIsLoading(false);
     }
@@ -252,16 +336,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { data: sessionData } = await auth.getSession();
       
       if (sessionData.session?.user) {
-        // Restore and validate business context using RLS system
-        const validatedBusinessId = await getValidatedBusinessContext();
+        // Restore and validate business context using RLS system with auto-discovery
+        const validatedBusinessId = businessContext.getCurrentBusinessId();
         
-        // Set RLS context if valid business context exists
-        if (validatedBusinessId) {
-          const contextResult = await setRLSBusinessContext(validatedBusinessId);
-          if (!contextResult.success) {
-            console.warn('Failed to restore business context during refresh:', contextResult.error);
-            await clearBusinessContext();
-          }
+        if (!validatedBusinessId) {
+          console.log('🔐 AuthContext: No business context available during refresh');
         }
 
         const authUser: AuthUser = {
@@ -274,22 +353,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(authUser);
       } else {
         setUser(null);
-        await clearBusinessContext();
+        await businessContext.clearBusinessContext();
       }
     } catch (error) {
       console.error('Error refreshing session:', error);
       setUser(null);
-      await clearBusinessContext();
+      await businessContext.clearBusinessContext();
     }
   };
 
   const setBusinessContextWrapper = async (businessId: string) => {
     try {
       // Use RLS context management for setting business context
-      const result = await setRLSBusinessContext(businessId);
+      const result = await businessContext.setBusinessContext(businessId);
       
       if (!result.success) {
-        return { error: { message: result.error || 'Error al establecer el contexto del negocio' } };
+        const errorMessage = result.error?.message || 'Error al establecer el contexto del negocio';
+        return { error: { message: errorMessage } };
       }
 
       // Update user state with new business context
@@ -308,7 +388,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const getCurrentBusinessId = () => {
-    return getBusinessContext();
+    return businessContext.getCurrentBusinessId();
   };
 
   const value: AuthContextType = {

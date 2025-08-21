@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { businessContext as unifiedBusinessContext } from './business-context';
 import type { User, Session } from '@supabase/supabase-js';
 
 export type AuthUser = {
@@ -28,77 +29,27 @@ export type AuthSession = {
   };
 };
 
-// Business context management
-const BUSINESS_ID_KEY = 'current_business_id';
-
+// Legacy business context - DEPRECATED: Use businessContext from './business-context.ts'
 export const businessContext = {
-  // Get current business ID from localStorage
   getCurrentBusinessId: (): string | null => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(BUSINESS_ID_KEY);
+    return unifiedBusinessContext.getCurrentBusinessId();
   },
-
-  // Set current business ID in localStorage
   setCurrentBusinessId: (businessId: string): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(BUSINESS_ID_KEY, businessId);
+    // Only set localStorage - full context setting should use unifiedBusinessContext.setBusinessContext
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('current_business_id', businessId);
+    }
   },
-
-  // Clear business context
   clearBusinessContext: (): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(BUSINESS_ID_KEY);
+    unifiedBusinessContext.clearBusinessContext();
   },
-
-  // Set database business context for RLS
   setDatabaseBusinessContext: async (businessId: string): Promise<{ error: AuthError | null }> => {
-    try {
-      const { error } = await supabase.rpc('set_current_business_id', {
-        business_id: businessId
-      });
-      
-      if (error) {
-        return { error: { message: error.message, status: error.code ? parseInt(error.code) : 500 } };
-      }
-      
-      return { error: null };
-    } catch (err) {
-      return { 
-        error: { 
-          message: err instanceof Error ? err.message : 'Failed to set business context',
-          status: 500 
-        } 
-      };
-    }
+    const result = await unifiedBusinessContext.setBusinessContext(businessId);
+    return { error: result.success ? null : (result.error ? { message: result.error.message, status: 500 } : { message: 'Failed to set context', status: 500 }) };
   },
-
-  // Validate business context matches user
   validateBusinessContext: async (userId: string, businessId: string): Promise<{ valid: boolean; error: AuthError | null }> => {
-    try {
-      const { data, error } = await supabase
-        .from('businesses')
-        .select('id')
-        .eq('id', businessId)
-        .eq('owner_id', userId)
-        .single();
-
-      if (error) {
-        return { 
-          valid: false, 
-          error: { message: 'Business context validation failed', status: 403 } 
-        };
-      }
-
-      return { valid: !!data, error: null };
-    } catch (err) {
-      return { 
-        valid: false, 
-        error: { 
-          message: err instanceof Error ? err.message : 'Business validation error',
-          status: 500 
-        } 
-      };
-    }
+    const result = await unifiedBusinessContext.validateBusinessAccess(userId, businessId);
+    return { valid: result.success, error: result.success ? null : (result.error ? { message: result.error.message, status: 500 } : { message: 'Validation failed', status: 500 }) };
   }
 };
 
@@ -165,13 +116,12 @@ export const auth = {
       // If user has business_id in metadata, set business context
       if (data.session?.user?.user_metadata?.business_id) {
         const businessId = data.session.user.user_metadata.business_id;
-        businessContext.setCurrentBusinessId(businessId);
         
-        // Set database context for RLS
-        const contextResult = await businessContext.setDatabaseBusinessContext(businessId);
-        if (contextResult.error) {
+        // Set full business context (localStorage + RLS)
+        const contextResult = await unifiedBusinessContext.setBusinessContext(businessId);
+        if (!contextResult.success) {
           // Log warning but don't fail authentication
-          console.warn('Failed to set database business context:', contextResult.error);
+          console.warn('Failed to set business context:', contextResult.error);
         }
       }
       
@@ -192,7 +142,7 @@ export const auth = {
   signOut: async (): Promise<{ error: AuthError | null }> => {
     try {
       // Clear business context first
-      businessContext.clearBusinessContext();
+      await unifiedBusinessContext.clearBusinessContext();
       
       const { error } = await supabase.auth.signOut();
       
@@ -290,12 +240,11 @@ export const auth = {
   onAuthStateChange: (callback: (user: AuthUser | null) => void) => {
     return supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const businessId = session.user.user_metadata?.business_id || businessContext.getCurrentBusinessId();
+        const businessId = session.user.user_metadata?.business_id || unifiedBusinessContext.getCurrentBusinessId();
         
         // Set business context if available
         if (businessId) {
-          businessContext.setCurrentBusinessId(businessId);
-          await businessContext.setDatabaseBusinessContext(businessId);
+          await unifiedBusinessContext.setBusinessContext(businessId);
         }
         
         const user: AuthUser = {
@@ -307,7 +256,7 @@ export const auth = {
         callback(user);
       } else {
         // Clear business context on sign out
-        businessContext.clearBusinessContext();
+        await unifiedBusinessContext.clearBusinessContext();
         callback(null);
       }
     });
@@ -432,12 +381,9 @@ export const auth = {
         return { error: { message: updateError.message, status: updateError.status } };
       }
 
-      // Set local business context
-      businessContext.setCurrentBusinessId(businessId);
-      
-      // Set database context for RLS
-      const contextResult = await businessContext.setDatabaseBusinessContext(businessId);
-      return contextResult;
+      // Set full business context (localStorage + RLS)
+      const result = await unifiedBusinessContext.setBusinessContext(businessId);
+      return { error: result.success ? null : (result.error ? { message: result.error.message, status: 500 } : { message: 'Failed to set context', status: 500 }) };
     } catch (err) {
       return { 
         error: { 
@@ -461,6 +407,7 @@ export const auth = {
       return { valid: false, error: { message: 'User not authenticated', status: 401 } };
     }
 
-    return businessContext.validateBusinessContext(userData.user.id, businessId);
+    const result = await unifiedBusinessContext.validateBusinessAccess(userData.user.id, businessId);
+    return { valid: result.success, error: result.success ? null : result.error || { message: 'Validation failed', status: 500 } };
   }
 };

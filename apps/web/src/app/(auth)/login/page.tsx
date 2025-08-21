@@ -24,14 +24,15 @@ function LoginForm() {
       try {
         console.log('🔐 Login: Checking existing authentication...');
         
-        // Add timeout to prevent infinite loading
-        const authCheckPromise = auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth check timeout')), 5000)
-        );
+        // Check session with improved error handling
+        const result = await auth.getSession();
+        const { data, error } = result;
         
-        const result = await Promise.race([authCheckPromise, timeoutPromise]);
-        const { data } = result as Awaited<ReturnType<typeof auth.getSession>>;
+        if (error) {
+          console.warn('🔐 Login: Session check failed:', error.message);
+          // Continue to show login form if session check fails
+          return;
+        }
         
         if (data.session) {
           console.log('🔐 Login: User already authenticated, redirecting...');

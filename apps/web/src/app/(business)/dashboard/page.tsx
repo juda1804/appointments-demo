@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth, useBusinessContext } from '@/lib/auth-context';
 import { BusinessProfileCard } from '@/components/business/business-profile-card';
 import { BusinessProfileEditForm } from '@/components/business/business-profile-edit-form';
 import { BusinessSettingsPanel } from '@/components/business/business-settings-panel';
@@ -14,17 +14,29 @@ export const dynamic = 'force-dynamic';
 export default function BusinessDashboardPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { getCurrentBusinessId } = useAuth();
+  
+  // Use new async business context hook with auto-selection
+  const { businessId, isLoading: isBusinessLoading, error: businessError } = useBusinessContext({ autoSelect: true });
+  
   const [business, setBusiness] = useState<Business | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const businessId = getCurrentBusinessId();
   const setupMode = searchParams.get('setup') === 'business';
 
   useEffect(() => {
+    // Wait for business context to load
+    if (isBusinessLoading) return;
+    
+    // Handle business context errors
+    if (businessError) {
+      setError(`Error al cargar el contexto del negocio: ${businessError}`);
+      setIsLoading(false);
+      return;
+    }
+    
     // Handle business setup flow
     if (setupMode && !businessId) {
       // Redirect to dedicated business registration page for better UX
@@ -34,8 +46,12 @@ export default function BusinessDashboardPage() {
 
     if (businessId) {
       fetchBusinessProfile();
+    } else {
+      // No business found after auto-selection attempt
+      setError('No se encontró ningún negocio asociado a tu cuenta');
+      setIsLoading(false);
     }
-  }, [businessId, setupMode, router]);
+  }, [businessId, isBusinessLoading, businessError, setupMode, router]);
 
   const fetchBusinessProfile = async () => {
     try {
@@ -114,7 +130,7 @@ export default function BusinessDashboardPage() {
     }
   };
 
-  if (isLoading) {
+  if (isBusinessLoading || isLoading) {
     return (
       <div className="py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

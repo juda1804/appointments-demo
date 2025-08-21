@@ -21,6 +21,7 @@ interface AuthContextType {
   refreshSession: () => Promise<void>;
   setBusinessContext: (businessId: string) => Promise<{ error: AuthError | null }>;
   getCurrentBusinessId: () => string | null;
+  getCurrentBusinessIdAsync: (options?: { autoSelect?: boolean; skipCache?: boolean }) => Promise<string | null>;
   initializeSessionTimeout: (config?: Partial<SessionTimeoutConfig>) => void;
   resetSessionTimeout: () => void;
   stopSessionTimeout: () => void;
@@ -46,33 +47,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         console.log('🔐 AuthContext: Initializing auth state...');
         
-        // Add timeout to prevent infinite loading
-        const authCheckPromise = auth.getSession();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Auth initialization timeout')), 10000)
-        );
+        // Check session with improved error handling
+        const result = await auth.getSession();
+        const { data: sessionData, error } = result;
         
-        const result = await Promise.race([authCheckPromise, timeoutPromise]);
-        const { data: sessionData } = result as Awaited<ReturnType<typeof auth.getSession>>;
+        if (error) {
+          console.warn('🔐 AuthContext: Session check failed:', error.message);
+          // Continue with initialization even if session check fails
+        }
         
         if (mounted && sessionData.session?.user) {
           console.log('🔐 AuthContext: Session found, setting up user...');
           
-          // Try to get business context with auto-discovery and timeout
+          // Try to get business context (synchronous call)
           let validatedBusinessId: string | null = null;
           try {
-            const businessContextPromise = businessContext.getCurrentBusinessId();
-            const businessTimeoutPromise = new Promise<string | null>((resolve) => 
-              setTimeout(() => resolve(null), 5000) // Increased timeout for discovery
-            );
-            
-            validatedBusinessId = await Promise.race([businessContextPromise, businessTimeoutPromise]);
+            validatedBusinessId = businessContext.getCurrentBusinessId();
             
             if (validatedBusinessId) {
               console.log('🔐 AuthContext: Business context available:', validatedBusinessId);
-              // Context is already set by businessContext.getCurrentBusinessId if discovered
             } else {
-              console.log('🔐 AuthContext: No business context found or discovered');
+              console.log('🔐 AuthContext: No business context found');
             }
           } catch (businessError) {
             console.warn('🔐 AuthContext: Business context error:', businessError);
@@ -149,7 +144,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return { error: result.error };
       }
 
-      // After successful login, attempt to get or discover business context automatically
+      // After successful login, attempt to get business context
       try {
         const validatedBusinessId = businessContext.getCurrentBusinessId();
         if (validatedBusinessId) {
@@ -336,7 +331,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { data: sessionData } = await auth.getSession();
       
       if (sessionData.session?.user) {
-        // Restore and validate business context using RLS system with auto-discovery
+        // Restore and validate business context using RLS system
         const validatedBusinessId = businessContext.getCurrentBusinessId();
         
         if (!validatedBusinessId) {
@@ -391,6 +386,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return businessContext.getCurrentBusinessId();
   };
 
+  const getCurrentBusinessIdAsync = async (options?: { autoSelect?: boolean; skipCache?: boolean }) => {
+    // Get user ID for database queries
+    const userId = user?.id;
+
+    console.log('User ID', userId);
+    
+    return await businessContext.getCurrentBusinessIdAsync({
+      ...options,
+      userId
+    });
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -402,6 +409,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     refreshSession,
     setBusinessContext: setBusinessContextWrapper,
     getCurrentBusinessId,
+    getCurrentBusinessIdAsync,
     initializeSessionTimeout,
     resetSessionTimeout,
     stopSessionTimeout,
@@ -449,4 +457,55 @@ export function useRequireBusinessContext() {
   }, [user, isInitialized, businessId]);
 
   return { user, isInitialized, businessId, hasBusinessContext: !!businessId };
+}
+
+// Hook for async business context with auto-selection
+export function useBusinessContext(options?: { autoSelect?: boolean; skipCache?: boolean }) {
+  const { user, isInitialized, getCurrentBusinessIdAsync } = useAuth();
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBusinessContext() {
+      if (!isInitialized || !user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const result = await getCurrentBusinessIdAsync(options);
+        
+        if (mounted) {
+          setBusinessId(result);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to load business context');
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadBusinessContext();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user, isInitialized, getCurrentBusinessIdAsync, options?.autoSelect, options?.skipCache]);
+
+  return {
+    user,
+    businessId,
+    isLoading,
+    error,
+    hasBusinessContext: !!businessId,
+    isInitialized: isInitialized && !isLoading
+  };
 }

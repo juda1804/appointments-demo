@@ -50,6 +50,13 @@ export const businessContext = {
   validateBusinessContext: async (userId: string, businessId: string): Promise<{ valid: boolean; error: AuthError | null }> => {
     const result = await unifiedBusinessContext.validateBusinessAccess(userId, businessId);
     return { valid: result.success, error: result.success ? null : (result.error ? { message: result.error.message, status: 500 } : { message: 'Validation failed', status: 500 }) };
+  },
+  // Add new unified methods for compatibility
+  setBusinessContext: async (businessId: string) => {
+    return await unifiedBusinessContext.setBusinessContext(businessId);
+  },
+  validateBusinessAccess: async (userId: string, businessId: string) => {
+    return await unifiedBusinessContext.validateBusinessAccess(userId, businessId);
   }
 };
 

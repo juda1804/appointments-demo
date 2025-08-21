@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-import { businessContext } from './business-context';
-
 // Mock Supabase
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
@@ -12,11 +10,17 @@ jest.mock('@supabase/supabase-js', () => ({
       select: jest.fn(() => ({
         eq: jest.fn(() => ({
           single: jest.fn()
-        }))
+        })),
+        order: jest.fn(() => ({
+          eq: jest.fn()
+        })),
+        single: jest.fn()
       }))
     }))
   }))
 }));
+
+import { businessContext } from './business-context';
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -124,6 +128,25 @@ describe('Unified Business Context', () => {
         isValid: false,
         source: 'none'
       });
+    });
+  });
+
+  describe('getCurrentBusinessIdAsync', () => {
+    it('should return cached business ID when valid', async () => {
+      const validBusinessId = '12345678-1234-1234-1234-123456789abc';
+      mockLocalStorage.getItem.mockReturnValue(validBusinessId);
+      
+      const result = await businessContext.getCurrentBusinessIdAsync();
+      
+      expect(result).toBe(validBusinessId);
+    });
+
+    it('should return null when autoSelect is false and no cached ID', async () => {
+      mockLocalStorage.getItem.mockReturnValue(null);
+      
+      const result = await businessContext.getCurrentBusinessIdAsync({ autoSelect: false });
+      
+      expect(result).toBeNull();
     });
   });
 });

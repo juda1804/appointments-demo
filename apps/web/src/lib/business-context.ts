@@ -4,19 +4,13 @@
  * Consolidates localStorage, RLS context, and validation logic
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Constants
 const STORAGE_KEY = 'current_business_id';
-
-// Initialize Supabase client for RLS operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export type BusinessContextError = {
   message: string;
@@ -29,13 +23,27 @@ export type BusinessContextResult = {
   businessId?: string;
 };
 
+export type GetBusinessIdOptions = {
+  autoSelect?: boolean;  // Auto-select first business if none stored (default: true)
+  userId?: string;       // User ID for server-side queries
+  skipCache?: boolean;   // Skip localStorage cache and query database
+};
+
+export type UserBusiness = {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+};
+
 /**
  * Unified Business Context Manager
  * Single source of truth for all business context operations
  */
 export const businessContext = {
   /**
-   * Get current business ID - THE authoritative method
+   * Get current business ID - THE authoritative method with database fallback
    * All other getCurrentBusinessId calls should use this
    */
   getCurrentBusinessId(): string | null {
@@ -58,6 +66,158 @@ export const businessContext = {
     }
     
     return null;
+  },
+
+  /**
+   * Enhanced get current business ID with database fallback
+   * Automatically queries database if no localStorage business ID exists
+   */
+  async getCurrentBusinessIdAsync(options: GetBusinessIdOptions = {}): Promise<string | null> {
+    const { autoSelect = true, userId, skipCache = false } = options;
+
+    // Check localStorage cache first (unless skipping cache)
+    if (!skipCache && typeof window !== 'undefined') {
+      const cachedBusinessId = localStorage.getItem(STORAGE_KEY);
+      
+      if (cachedBusinessId && UUID_REGEX.test(cachedBusinessId)) {
+        // Validate cached business belongs to user if userId provided
+        if (userId) {
+          const isValid = await this.validateBusinessOwnership(cachedBusinessId, userId);
+          if (isValid) {
+            return cachedBusinessId;
+          } else {
+            // Cached business doesn't belong to user - clear it
+            console.warn('Cached business ID does not belong to user, clearing:', cachedBusinessId);
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } else {
+          return cachedBusinessId;
+        }
+      }
+      
+      // Clear invalid cached business ID
+      if (cachedBusinessId) {
+        console.warn('Invalid cached business ID found, clearing:', cachedBusinessId);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
+    // No valid cached business ID - query database
+    console.log('Auto-selecting business', autoSelect);
+    if (autoSelect) {
+      try {
+        const businesses = await this.getUserBusinesses(userId);
+        
+        console.log('Businesses', businesses);
+        if (businesses.length > 0) {
+          // Auto-select first business
+          const selectedBusinessId = businesses[0].id;
+          
+          // Cache the selection in localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY, selectedBusinessId);
+          }
+          
+          console.log('🏢 Auto-selected business:', { 
+            businessId: selectedBusinessId, 
+            businessName: businesses[0].name,
+            totalBusinesses: businesses.length 
+          });
+          
+          return selectedBusinessId;
+        }
+      } catch (error) {
+        console.error('Failed to fetch user businesses for auto-selection:', error);
+      }
+    }
+
+    return null;
+  },
+
+  /**
+   * Get all businesses owned by the specified user
+   */
+  async getUserBusinesses(userId?: string): Promise<UserBusiness[]> {
+    try {
+      let query = supabase
+        .from('businesses')
+        .select('id, name, email, created_at, updated_at')
+        .order('created_at', { ascending: true });
+
+      // If userId is provided, add explicit filter (useful for server-side operations)
+      if (userId) {
+        query = query.eq('owner_id', userId);
+      }
+      // Otherwise rely on RLS policies to filter by authenticated user
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw new Error(`Failed to fetch user businesses: ${error.message}`);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching user businesses:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Validate that a business belongs to the specified user
+   */
+  async validateBusinessOwnership(businessId: string, userId: string): Promise<boolean> {
+    try {
+      if (!UUID_REGEX.test(businessId)) {
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('id', businessId)
+        .eq('owner_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error validating business ownership:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (error) {
+      console.error('Error validating business ownership:', error);
+      return false;
+    }
+  },
+
+  /**
+   * Set user's default business (stores in localStorage and sets RLS context)
+   */
+  async setDefaultBusiness(businessId: string, userId?: string): Promise<BusinessContextResult> {
+    try {
+      // Validate business ownership if userId provided
+      if (userId) {
+        const isOwner = await this.validateBusinessOwnership(businessId, userId);
+        if (!isOwner) {
+          return {
+            success: false,
+            error: { message: 'Business does not belong to user', code: 'OWNERSHIP_ERROR' }
+          };
+        }
+      }
+
+      // Set as current business context
+      return await this.setBusinessContext(businessId);
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          message: error instanceof Error ? error.message : 'Failed to set default business',
+          code: 'SET_DEFAULT_ERROR'
+        }
+      };
+    }
   },
 
   /**
@@ -261,6 +421,16 @@ export const businessContext = {
         error: error instanceof Error ? error.message : 'Unknown test error'
       };
     }
+  },
+
+  /**
+   * Legacy setCurrentBusinessId method for test compatibility
+   * Only sets localStorage, does not set RLS context
+   */
+  setCurrentBusinessId: (businessId: string): void => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, businessId);
+    }
   }
 };
 
@@ -270,9 +440,10 @@ export const {
   setBusinessContext,
   clearBusinessContext,
   validateBusinessAccess,
-  hasBusinessContext
+  hasBusinessContext,
+  setCurrentBusinessId
 } = businessContext;
 
 // For gradual migration - alias the main functions
 export const getBusinessContext = getCurrentBusinessId;
-export const setCurrentBusinessId = setBusinessContext;
+// setCurrentBusinessId is now exported from businessContext object above
